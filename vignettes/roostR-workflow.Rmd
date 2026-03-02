@@ -1,0 +1,344 @@
+---
+title: "roostR workflow: detecting roosting behavior from Motus data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{roostR workflow: detecting roosting behavior from Motus data}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 4
+)
+```
+
+## Overview
+
+**roostR** converts raw Motus radio-telemetry detections into behavioral
+metrics for nocturnally roosting birds. The core idea is that an animal moving
+near a receiver tower produces larger changes in signal strength than a
+stationary roosting bird. By tracking these signal differences over time,
+roostR can detect:
+
+- **Roost onset** — when the bird settles for the night (near sunset)
+- **Roost departure** — when the bird leaves in the morning (near sunrise)
+- **Restlessness** — activity spikes during the roost interval
+
+This vignette walks through the complete analysis pipeline using the built-in
+`sparrow52550` dataset (a song sparrow, *Melospiza melodia*, tag deploy
+ID 52550).
+
+### Required input
+
+Your detection dataframe must contain at minimum:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `tagDeployID` | integer | Deployment-specific tag ID (primary individual key) |
+| `time` | POSIXct UTC | Detection timestamp |
+| `doy` | integer | Day of year |
+| `sig` | numeric | Signal strength (dBm) |
+| `Sunrise` | POSIXct UTC | Sunrise for that date and location |
+| `Sunset` | POSIXct UTC | Sunset for that date and location |
+
+Astronomical twilight columns (`AT.Start`, `AT.End`, `NT.Start`, `NT.End`,
+`CT.Start`, `CT.End`) are included in `sparrow52550` and are useful for
+context plots but not required by core functions.
+
+```{r load}
+library(roostR)
+library(dplyr)
+library(ggplot2)
+
+data(sparrow52550)
+glimpse(sparrow52550)
+```
+
+---
+
+## Step 1: Collapse multi-antenna detections
+
+A Motus tag can be detected on up to four antennas at the same receiver
+simultaneously. `collapse_motus_time()` reduces these to one row per
+timestamp, keeping the maximum signal (`sig`) and computing the mean
+(`sig.mean`).
+
+```{r collapse}
+sp <- collapse_motus_time(sparrow52550)
+
+cat("Rows before:", nrow(sparrow52550), "\n")
+cat("Rows after: ", nrow(sp), "\n")
+```
+
+---
+
+## Step 2: Compute activity proxies
+
+`add_signal_diffs()` adds three columns:
+
+- `sig.diff` — absolute change in maximum signal from the previous detection
+- `sig.diff.mean` — absolute change in mean signal
+- `time.diff` — minutes elapsed since the previous detection
+
+These are the core activity proxies. Large `sig.diff` values indicate
+movement; small values indicate a stationary (roosting) bird.
+
+```{r signal-diffs}
+sp <- add_signal_diffs(sp)
+summary(sp$sig.diff)
+```
+
+`add_continuity_flags()` marks gaps in the detection series. With a
+2-minute threshold (tuned to the ~20 second tag ping interval), detections
+within 2 minutes of each other are "continuous":
+
+```{r continuity}
+sp <- add_continuity_flags(sp, threshold = 2)
+
+# Proportion of detections preceded by a gap
+mean(sp$gap, na.rm = TRUE)
+```
+
+---
+
+## Step 3: Smooth signal differences
+
+`add_roll_median()` computes a centered rolling median over `k = 25`
+observations (≈ 8–10 minutes). This smooths micro-spikes from brief
+movements while preserving genuine behavioral transitions.
+
+```{r smooth}
+sp <- add_roll_median(sp, k = 25)
+```
+
+---
+
+## Step 4: Classify day and night
+
+`add_day_night()` labels each detection as `"day"` or `"night"` based on
+the per-row `Sunrise` and `Sunset` times:
+
+```{r diel}
+sp <- add_day_night(sp)
+table(sp$diel)
+```
+
+Convert times to decimal hour-of-day for plotting:
+
+```{r hours}
+sp <- sp %>%
+  mutate(
+    hour         = lubridate::hour(time) + lubridate::minute(time) / 60,
+    sunset_hour  = lubridate::hour(Sunset)  + lubridate::minute(Sunset)  / 60,
+    sunrise_hour = lubridate::hour(Sunrise) + lubridate::minute(Sunrise) / 60
+  )
+```
+
+A quick sanity check — rolling median should be higher during the day:
+
+```{r plot-diel, fig.cap="Rolling median activity by diel period and day-of-year"}
+ggplot(sp, aes(hour, roll_vol, color = diel)) +
+  geom_point(size = 0.3, alpha = 0.4) +
+  facet_wrap(~doy) +
+  scale_color_manual(values = c(day = "#FDE725FF", night = "#440154FF")) +
+  labs(x = "Hour (UTC)", y = "Rolling median signal difference",
+       color = "Period") +
+  theme_bw()
+```
+
+---
+
+## Step 5: Detect roost timing
+
+### Roost onset (sunset window)
+
+`detect_roost_onset()` looks within ±90 minutes of sunset for the first
+sustained drop in rolling median below the threshold (3):
+
+```{r roost-onset}
+roost_times <- detect_roost_onset(sp,
+                                  window_minutes = 90,
+                                  vol_threshold  = 3,
+                                  min_duration   = 10)
+head(roost_times)
+```
+
+### Roost departure (sunrise window)
+
+`detect_roost_departure()` looks in the 90 minutes before through 120
+minutes after sunrise for the first spike in activity:
+
+```{r roost-departure}
+leave_times <- detect_roost_departure(sp,
+                                      window_before    = 90,
+                                      window_after     = 120,
+                                      spike_threshold  = 4,
+                                      median_threshold = 3)
+head(leave_times)
+```
+
+Join roost times back to the detection dataframe and convert to decimal hours:
+
+```{r add-roost-times}
+sp <- add_roost_times(sp, roost_times, leave_times)
+sp <- add_roost_hours(sp)
+```
+
+---
+
+## Step 6: Overnight plotting
+
+`wrap_hours_overnight()` shifts UTC hours so that 17:00 UTC (≈ noon EST)
+becomes the left edge of the plot, keeping the full roost period visible in
+one panel per night:
+
+```{r wrap}
+overnight <- wrap_hours_overnight(sp, pivot_hour = 17)
+
+# One vertical line per DOY for each event
+roost_lines   <- distinct(overnight, doy, roost_hour_wrap)
+leave_lines   <- distinct(overnight, doy, leave_roost_hour_wrap)
+sunset_lines  <- distinct(overnight, doy, sunset_hour_wrap)
+sunrise_lines <- distinct(overnight, doy, sunrise_hour_wrap)
+```
+
+```{r plot-overnight, fig.cap="Signal differences with roost onset, departure, sunrise and sunset lines"}
+ggplot(overnight, aes(hour_wrap, sig.diff)) +
+  geom_point(alpha = 0.4, size = 0.5) +
+  geom_vline(data = sunset_lines,
+             aes(xintercept = sunset_hour_wrap),
+             linetype = 2, color = "#440154FF") +
+  geom_vline(data = sunrise_lines,
+             aes(xintercept = sunrise_hour_wrap),
+             linetype = 2, color = "#95D840FF") +
+  geom_vline(data = roost_lines,
+             aes(xintercept = roost_hour_wrap),
+             color = "#39568CFF") +
+  geom_vline(data = leave_lines,
+             aes(xintercept = leave_roost_hour_wrap),
+             color = "#55C667FF") +
+  facet_wrap(~doy) +
+  scale_x_continuous(
+    breaks = seq(15, 39, by = 3),
+    labels = function(x) x %% 24
+  ) +
+  coord_cartesian(ylim = c(0, 50)) +
+  geom_hline(yintercept = 5, color = "#FDE725FF", linetype = 2) +
+  labs(x = "Hour (noon–noon EST)",
+       y = "Signal difference") +
+  theme_bw()
+```
+
+Purple dashed = sunset, green dashed = sunrise, blue solid = roost onset,
+green solid = roost departure.
+
+---
+
+## Step 7: Night observation metrics
+
+`compute_night_observation()` calculates, for each individual × night:
+
+- `time_roosting_hr` — total roost interval duration
+- `observed_time_hr` — time with detections (gaps > 10 min treated as out-of-range)
+- `prop_time_observed` — coverage fraction
+
+```{r night-obs}
+night_metrics <- compute_night_observation(sp, gap_threshold = 10)
+summary(night_metrics[c("time_roosting_hr", "observed_time_hr",
+                         "prop_time_observed")])
+
+sp <- left_join(sp, night_metrics, by = c("tagDeployID", "doy"))
+```
+
+---
+
+## Step 8: Restlessness
+
+`calc_restless_all()` counts bouts of elevated activity (`sig.diff > 4`)
+within the roost interval:
+
+```{r restless}
+restless_summary <- calc_restless_all(sp,
+                                      spike_threshold = 4,
+                                      gap_min = 2)
+sp <- left_join(sp, restless_summary, by = c("tagDeployID", "doy"))
+```
+
+`add_spike_bouts()` annotates individual detections for plotting:
+
+```{r spike-bouts}
+sp <- add_spike_bouts(sp, spike_threshold = 4, gap_min = 2)
+```
+
+```{r plot-spikes, fig.cap="Restlessness spikes (red) during the roost interval"}
+ggplot(sp, aes(x = time, y = sig.diff)) +
+  geom_point(color = "grey70", size = 0.5) +
+  geom_point(data = filter(sp, spike), color = "red", size = 1.2) +
+  geom_hline(yintercept = 4, linetype = 2, color = "blue") +
+  labs(x = "Time (UTC)", y = "Signal difference") +
+  theme_bw()
+```
+
+`calc_restless_rates()` normalizes by observed time so nights with low
+coverage are comparable:
+
+```{r restless-rates}
+restless_rates <- calc_restless_rates(sp)
+sp <- left_join(sp, restless_rates, by = c("tagDeployID", "doy"))
+```
+
+---
+
+## Step 9: Summary plots
+
+```{r plot-summary, fig.cap="Roost and departure timing relative to sunset and sunrise"}
+night_plot <- sp %>%
+  distinct(tagDeployID, doy, roost_hour, leave_roost_hour,
+           sunset_hour, sunrise_hour, prop_time_restless,
+           restless_per_obs_hr)
+
+# Convert to EST for interpretability
+sp_est <- sp %>%
+  mutate(
+    roost_time_est = lubridate::with_tz(roost_time, "America/New_York"),
+    leave_time_est = lubridate::with_tz(leave_roost_time, "America/New_York"),
+    sunrise_est    = lubridate::with_tz(Sunrise, "America/New_York"),
+    sunset_est     = lubridate::with_tz(Sunset,  "America/New_York"),
+    roost_hour_est = lubridate::hour(roost_time_est) +
+                       lubridate::minute(roost_time_est) / 60,
+    leave_hour_est = lubridate::hour(leave_time_est) +
+                       lubridate::minute(leave_time_est) / 60,
+    sunrise_hour_est = lubridate::hour(sunrise_est) +
+                         lubridate::minute(sunrise_est) / 60,
+    sunset_hour_est  = lubridate::hour(sunset_est) +
+                         lubridate::minute(sunset_est)  / 60
+  )
+
+night_est <- distinct(sp_est, tagDeployID, doy, roost_hour_est,
+                      leave_hour_est, sunrise_hour_est, sunset_hour_est,
+                      prop_time_restless, restless_per_obs_hr)
+
+ggplot(night_est, aes(doy)) +
+  geom_point(aes(y = roost_hour_est)) +
+  geom_line(aes(y = sunset_hour_est), linetype = "dashed") +
+  labs(y = "Hour (America/New_York)", title = "Roost time vs. sunset") +
+  theme_bw()
+
+ggplot(night_est, aes(doy)) +
+  geom_point(aes(y = leave_hour_est)) +
+  geom_line(aes(y = sunrise_hour_est), linetype = "dashed") +
+  labs(y = "Hour (America/New_York)", title = "Departure time vs. sunrise") +
+  theme_bw()
+
+ggplot(night_est, aes(doy, prop_time_restless)) +
+  geom_point() +
+  geom_line() +
+  labs(x = "Day of year",
+       y = "Proportion of observed roost time restless") +
+  ylim(0, NA) +
+  theme_bw()
+```

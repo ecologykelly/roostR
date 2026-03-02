@@ -1,0 +1,32 @@
+Package: roostR
+Title: Activity Pattern Analysis for Motus Radio-Telemetry Data
+Version: 0.1.0
+Authors@R:
+    person("Kelly", "Williams", role = c("aut", "cre"),
+           email = "williak5@ohio.edu")
+Description: Tools for detecting and quantifying nocturnal roosting behavior,
+    roost timing, and restlessness in birds tagged with Motus radio transmitters.
+    Converts raw signal-strength detections into behavioral metrics including
+    roost onset time, roost departure time, observation coverage, and
+    restlessness bout statistics.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Imports:
+    dplyr,
+    lubridate,
+    magrittr,
+    zoo,
+    data.table
+Suggests:
+    ggplot2,
+    viridis,
+    tidyr,
+    psych,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
+Depends: 
+    R (>= 3.5)
+LazyData: true

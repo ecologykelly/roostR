@@ -1,0 +1,84 @@
+# roostR
+
+**roostR** is an R package for detecting and quantifying nocturnal roosting
+behavior in birds tagged with [Motus](https://motus.org/) radio transmitters.
+It converts raw signal-strength detections into behavioral metrics: roost onset
+time, roost departure time, nightly observation coverage, and restlessness bout
+statistics.
+
+## Installation
+
+```r
+# Install from GitHub
+remotes::install_github("ecologykelly/roostR")
+```
+
+Replace `username` with your GitHub username before publishing.
+
+## Quick Start
+
+```r
+library(roostR)
+
+# Example data: one song sparrow, multiple nights
+data(sparrow52550)
+
+# 1. Collapse multi-antenna detections to one row per timestamp
+sp <- collapse_motus_time(sparrow52550)
+
+# 2. Compute activity proxies (signal differences, time gaps)
+sp <- add_signal_diffs(sp)
+sp <- add_continuity_flags(sp)
+
+# 3. Smooth signal and classify diel period
+sp <- add_roll_median(sp)
+sp <- add_day_night(sp)
+
+# 4. Detect roost timing
+roost_times <- detect_roost_onset(sp)
+leave_times <- detect_roost_departure(sp)
+sp <- add_roost_times(sp, roost_times, leave_times)
+sp <- add_roost_hours(sp)
+
+# 5. Night-level metrics
+night_metrics <- compute_night_observation(sp)
+restless      <- calc_restless_all(sp)
+```
+
+See `vignette("roostR-workflow")` for a full walkthrough with plots.
+
+## Input Data Format
+
+roostR expects a dataframe of Motus detections with at minimum:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `tagDeployID` | integer | Deployment-specific tag identifier |
+| `time` | POSIXct (UTC) | Detection timestamp |
+| `doy` | integer | Day of year |
+| `sig` | numeric | Signal strength (dBm) |
+| `Sunrise` | POSIXct (UTC) | Sunrise time for that day |
+| `Sunset` | POSIXct (UTC) | Sunset time for that day |
+
+Astronomical twilight columns (`AT.Start`, `AT.End`, `NT.Start`, `NT.End`,
+`CT.Start`, `CT.End`) are optional but used by some downstream analyses.
+
+## Functions
+
+| Function | Purpose |
+|----------|---------|
+| `convert_to_posix()` | Convert DOY + time string to POSIXct |
+| `collapse_motus_time()` | Collapse multi-antenna detections to one row per timestamp |
+| `add_signal_diffs()` | Compute signal differences and inter-detection intervals |
+| `add_continuity_flags()` | Flag gaps and assign run IDs |
+| `add_roll_median()` | Centered rolling median smoothing |
+| `add_day_night()` | Classify detections as day or night |
+| `detect_roost_onset()` | Detect roost onset time near sunset |
+| `detect_roost_departure()` | Detect roost departure time near sunrise |
+| `add_roost_times()` | Join roost/departure times back to detection data |
+| `add_roost_hours()` | Convert roost times to decimal hour-of-day |
+| `wrap_hours_overnight()` | Shift UTC hours for noon-to-noon plotting |
+| `compute_night_observation()` | Compute roosting duration and observation coverage |
+| `calc_restless_all()` | Count restlessness bouts during roost interval |
+| `add_spike_bouts()` | Annotate spike bouts in the detection dataframe |
+| `calc_restless_rates()` | Normalize restlessness to per-observed-hour rates |
