@@ -58,7 +58,7 @@ more than \code{gap_min} minutes, or when it follows a non-spike observation.
 Bout duration is measured from the first to the last spike in the bout.
 
 Default thresholds (\code{spike_threshold = 4}, \code{gap_min = 2}) are tuned to
-song sparrow data. Requires \code{\link[=add_roost_times]{add_roost_times()}} to have been called.
+dark-eyed junco data. Requires \code{\link[=add_roost_times]{add_roost_times()}} to have been called.
 }
 \examples{
 \dontrun{

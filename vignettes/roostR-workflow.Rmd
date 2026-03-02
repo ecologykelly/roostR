@@ -29,7 +29,7 @@ roostR can detect:
 - **Restlessness** — activity spikes during the roost interval
 
 This vignette walks through the complete analysis pipeline using the built-in
-`sparrow52550` dataset (a song sparrow, *Melospiza melodia*, tag deploy
+`sparrow52550` dataset (a dark-eyed junco, *Junco hyemalis*, tag deploy
 ID 52550).
 
 ### Required input
@@ -251,7 +251,9 @@ night_metrics <- compute_night_observation(sp, gap_threshold = 10)
 summary(night_metrics[c("time_roosting_hr", "observed_time_hr",
                          "prop_time_observed")])
 
-sp <- left_join(sp, night_metrics, by = c("tagDeployID", "doy"))
+sp <- sp |>
+  select(-any_of(setdiff(names(night_metrics), c("tagDeployID", "doy")))) |>
+  left_join(night_metrics, by = c("tagDeployID", "doy"))
 ```
 
 ---
@@ -265,13 +267,18 @@ within the roost interval:
 restless_summary <- calc_restless_all(sp,
                                       spike_threshold = 4,
                                       gap_min = 2)
-sp <- left_join(sp, restless_summary, by = c("tagDeployID", "doy"))
+sp <- sp |>
+  select(-any_of(setdiff(names(restless_summary), c("tagDeployID", "doy")))) |>
+  left_join(restless_summary, by = c("tagDeployID", "doy"))
 ```
 
 `add_spike_bouts()` annotates individual detections for plotting:
 
 ```{r spike-bouts}
-sp <- add_spike_bouts(sp, spike_threshold = 4, gap_min = 2)
+sp <- sp |>
+  select(-any_of(c("interval_start", "interval_end", "in_roost_interval",
+                   "spike", "dt", "new_bout", "bout_id"))) |>
+  add_spike_bouts(spike_threshold = 4, gap_min = 2)
 ```
 
 ```{r plot-spikes, fig.cap="Restlessness spikes (red) during the roost interval"}
@@ -288,7 +295,9 @@ coverage are comparable:
 
 ```{r restless-rates}
 restless_rates <- calc_restless_rates(sp)
-sp <- left_join(sp, restless_rates, by = c("tagDeployID", "doy"))
+sp <- sp |>
+  select(-any_of(setdiff(names(restless_rates), c("tagDeployID", "doy")))) |>
+  left_join(restless_rates, by = c("tagDeployID", "doy"))
 ```
 
 ---

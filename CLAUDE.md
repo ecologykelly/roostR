@@ -102,10 +102,10 @@ by the next:
 **Suggests** (optional, for vignette and user scripts):
 `ggplot2`, `viridis`, `tidyr`, `psych`, `knitr`, `rmarkdown`
 
-## Default thresholds (tuned to song sparrow / Motus hardware)
+## Default thresholds (tuned to dark-eyed junco / Motus hardware)
 
 All thresholds are exposed as function parameters and can be overridden.
-These defaults were tuned to song sparrow data with ~20 sec ping intervals:
+These defaults were tuned to dark-eyed junco data with ~20 sec ping intervals:
 
 | Parameter | Default | Function | Rationale |
 |---|---|---|---|

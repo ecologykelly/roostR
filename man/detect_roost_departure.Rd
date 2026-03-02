@@ -66,7 +66,7 @@ the forward rolling median exceeds \code{median_threshold}.
 }
 }
 \details{
-Default thresholds are tuned to song sparrow data. Adjust \code{spike_threshold}
+Default thresholds are tuned to dark-eyed junco data. Adjust \code{spike_threshold}
 and \code{median_threshold} for other species or transmitter types.
 }
 \examples{

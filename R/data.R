@@ -1,6 +1,6 @@
-#' Song sparrow Motus detections — example dataset
+#' Dark-eyed junco Motus detections — example dataset
 #'
-#' Radio-telemetry detections for a single song sparrow (*Melospiza melodia*)
+#' Radio-telemetry detections for a single dark-eyed junco (*Junco hyemalis*)
 #' tagged with a Motus transmitter (tag deploy ID 52550). Detections were
 #' recorded across multiple nights and span the full range of conditions
 #' encountered during nocturnal roosting analysis.

@@ -10,7 +10,7 @@
 #' Bout duration is measured from the first to the last spike in the bout.
 #'
 #' Default thresholds (`spike_threshold = 4`, `gap_min = 2`) are tuned to
-#' song sparrow data. Requires [add_roost_times()] to have been called.
+#' dark-eyed junco data. Requires [add_roost_times()] to have been called.
 #'
 #' @param data A dataframe of Motus detections with roost timing columns.
 #' @param id_col Character. Individual identifier column. Default `"tagDeployID"`.
@@ -39,7 +39,7 @@
 #' }
 #'
 #' @importFrom dplyr distinct across all_of arrange group_by mutate lag ungroup
-#'   inner_join filter if_else cumsum summarise n
+#'   inner_join filter if_else summarise n
 #' @export
 calc_restless_all <- function(data,
                               id_col = "tagDeployID",
@@ -167,7 +167,7 @@ calc_restless_all <- function(data,
 #' }
 #'
 #' @importFrom dplyr distinct across all_of arrange group_by mutate lead
-#'   ungroup filter left_join if_else cumsum lag
+#'   ungroup filter left_join if_else lag
 #' @export
 add_spike_bouts <- function(data,
                             id_col = "tagDeployID",

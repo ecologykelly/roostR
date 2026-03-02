@@ -59,7 +59,7 @@ near sunset — interpreted as roosting. The algorithm:
 }
 \details{
 Default thresholds (\code{vol_threshold = 3}, \code{min_duration = 10}) are tuned
-to song sparrow data where night rolling-median ≈ 1 and day ≈ 5. Adjust
+to dark-eyed junco data where night rolling-median ≈ 1 and day ≈ 5. Adjust
 for other species or transmitter types.
 
 Requires \code{\link[=add_roll_median]{add_roll_median()}} to have been called first.

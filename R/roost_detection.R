@@ -11,7 +11,7 @@
 #'    `min_duration` minutes.
 #'
 #' Default thresholds (`vol_threshold = 3`, `min_duration = 10`) are tuned
-#' to song sparrow data where night rolling-median ≈ 1 and day ≈ 5. Adjust
+#' to dark-eyed junco data where night rolling-median ≈ 1 and day ≈ 5. Adjust
 #' for other species or transmitter types.
 #'
 #' Requires [add_roll_median()] to have been called first.
@@ -115,7 +115,7 @@ detect_roost_onset <- function(data,
 #'    the forward rolling median exceeds `median_threshold`.
 #' 4. Returns the earliest such detection per individual × day.
 #'
-#' Default thresholds are tuned to song sparrow data. Adjust `spike_threshold`
+#' Default thresholds are tuned to dark-eyed junco data. Adjust `spike_threshold`
 #' and `median_threshold` for other species or transmitter types.
 #'
 #' @param data A dataframe of Motus detections with a signal difference column.

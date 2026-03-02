@@ -3,7 +3,7 @@
 \docType{data}
 \name{sparrow52550}
 \alias{sparrow52550}
-\title{Song sparrow Motus detections — example dataset}
+\title{Dark-eyed junco Motus detections — example dataset}
 \format{
 A data frame with 153,989 rows and 24 columns:
 \describe{
@@ -45,7 +45,7 @@ Sunrise/sunset and twilight times computed for the receiver location.
 sparrow52550
 }
 \description{
-Radio-telemetry detections for a single song sparrow (\emph{Melospiza melodia})
+Radio-telemetry detections for a single dark-eyed junco (\emph{Junco hyemalis})
 tagged with a Motus transmitter (tag deploy ID 52550). Detections were
 recorded across multiple nights and span the full range of conditions
 encountered during nocturnal roosting analysis.

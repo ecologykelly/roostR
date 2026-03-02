@@ -13,14 +13,13 @@ statistics.
 remotes::install_github("ecologykelly/roostR")
 ```
 
-Replace `username` with your GitHub username before publishing.
-
 ## Quick Start
 
 ```r
 library(roostR)
+library(dplyr)
 
-# Example data: one song sparrow, multiple nights
+# Example data: one dark-eyed junco, multiple nights
 data(sparrow52550)
 
 # 1. Collapse multi-antenna detections to one row per timestamp
@@ -40,9 +39,29 @@ leave_times <- detect_roost_departure(sp)
 sp <- add_roost_times(sp, roost_times, leave_times)
 sp <- add_roost_hours(sp)
 
-# 5. Night-level metrics
-night_metrics <- compute_night_observation(sp)
-restless      <- calc_restless_all(sp)
+# 5. Night observation metrics — use select(-any_of(...)) before each join
+#    to prevent duplicate columns if the script is re-run
+night_metrics <- compute_night_observation(sp, gap_threshold = 10)
+sp <- sp |>
+  select(-any_of(setdiff(names(night_metrics), c("tagDeployID", "doy")))) |>
+  left_join(night_metrics, by = c("tagDeployID", "doy"))
+
+# 6. Restlessness bouts
+restless_summary <- calc_restless_all(sp, spike_threshold = 4, gap_min = 2)
+sp <- sp |>
+  select(-any_of(setdiff(names(restless_summary), c("tagDeployID", "doy")))) |>
+  left_join(restless_summary, by = c("tagDeployID", "doy"))
+
+# 7. Annotate spikes and compute rates
+sp <- sp |>
+  select(-any_of(c("interval_start", "interval_end", "in_roost_interval",
+                   "spike", "dt", "new_bout", "bout_id"))) |>
+  add_spike_bouts(spike_threshold = 4, gap_min = 2)
+
+restless_rates <- calc_restless_rates(sp)
+sp <- sp |>
+  select(-any_of(setdiff(names(restless_rates), c("tagDeployID", "doy")))) |>
+  left_join(restless_rates, by = c("tagDeployID", "doy"))
 ```
 
 See `vignette("roostR-workflow")` for a full walkthrough with plots.
