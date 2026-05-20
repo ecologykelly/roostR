@@ -9,8 +9,8 @@ statistics.
 ## Installation
 
 ```r
-# Install from GitHub
-remotes::install_github("ecologykelly/roostR")
+# Install from GitHub (includes vignette)
+remotes::install_github("ecologykelly/roostR", build_vignettes = TRUE)
 ```
 
 ## Quick Start
