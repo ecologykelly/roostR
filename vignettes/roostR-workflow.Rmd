@@ -28,6 +28,10 @@ roostR can detect:
 - **Roost departure** — when the bird leaves in the morning (near sunrise)
 - **Restlessness** — activity spikes during the roost interval
 
+This workflow is designed for the **per-bird-file** pattern: one dataframe
+per individual, with `recvDeployName` identifying the receiver and `port`
+identifying the antenna.
+
 This vignette walks through the complete analysis pipeline using the built-in
 `sparrow52550` dataset (a dark-eyed junco, *Junco hyemalis*, tag deploy
 ID 52550).
@@ -38,7 +42,8 @@ Your detection dataframe must contain at minimum:
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `tagDeployID` | integer | Deployment-specific tag ID (primary individual key) |
+| `recvDeployName` | character | Receiver deployment name (individual key within a per-bird file) |
+| `port` | integer | Antenna port number |
 | `time` | POSIXct UTC | Detection timestamp |
 | `doy` | integer | Day of year |
 | `sig` | numeric | Signal strength (dBm) |
@@ -64,8 +69,8 @@ glimpse(sparrow52550)
 
 A Motus tag can be detected on up to four antennas at the same receiver
 simultaneously. `collapse_motus_time()` reduces these to one row per
-timestamp, keeping the maximum signal (`sig`) and computing the mean
-(`sig.mean`).
+receiver × port × timestamp, keeping the maximum signal (`sig`) and
+computing the mean (`sig.mean`).
 
 ```{r collapse}
 sp <- collapse_motus_time(sparrow52550)
@@ -78,7 +83,7 @@ cat("Rows after: ", nrow(sp), "\n")
 
 ## Step 2: Compute activity proxies
 
-`add_signal_diffs()` adds three columns:
+`add_signal_diffs()` adds three columns per receiver–port combination:
 
 - `sig.diff` — absolute change in maximum signal from the previous detection
 - `sig.diff.mean` — absolute change in mean signal
@@ -107,12 +112,13 @@ mean(sp$gap, na.rm = TRUE)
 
 ## Step 3: Smooth signal differences
 
-`add_roll_median()` computes a centered rolling median over `k = 25`
-observations (≈ 8–10 minutes). This smooths micro-spikes from brief
-movements while preserving genuine behavioral transitions.
+`add_roll_median()` computes a time-indexed centered rolling median over a
+15-minute window (±7.5 min each side). This smooths micro-spikes from brief
+movements while preserving genuine behavioral transitions, and correctly
+handles irregular detection intervals.
 
 ```{r smooth}
-sp <- add_roll_median(sp, k = 25)
+sp <- add_roll_median(sp, window_min = 15)
 ```
 
 ---
@@ -156,14 +162,19 @@ ggplot(sp, aes(hour, roll_vol, color = diel)) +
 
 ### Roost onset (sunset window)
 
-`detect_roost_onset()` looks within ±90 minutes of sunset for the first
-sustained drop in rolling median below the threshold (3):
+`detect_roost_onset()` looks within ±90 minutes of sunset for the latest
+sustained quiet period confirmed by a follow-up window. Two parameters
+control confirmation: `confirm_min` (how long the quiet must persist,
+default 30 min) and `confirm_frac` (fraction of detections that must be
+low-volatility, default 0.8):
 
 ```{r roost-onset}
 roost_times <- detect_roost_onset(sp,
                                   window_minutes = 90,
                                   vol_threshold  = 3,
-                                  min_duration   = 10)
+                                  min_duration   = 10,
+                                  confirm_min    = 30,
+                                  confirm_frac   = 0.8)
 head(roost_times)
 ```
 
@@ -181,7 +192,8 @@ leave_times <- detect_roost_departure(sp,
 head(leave_times)
 ```
 
-Join roost times back to the detection dataframe and convert to decimal hours:
+Join roost times back to the detection dataframe by night (`doy` only —
+roost and departure times are per-night values shared across all receivers):
 
 ```{r add-roost-times}
 sp <- add_roost_times(sp, roost_times, leave_times)
@@ -240,20 +252,21 @@ green solid = roost departure.
 
 ## Step 7: Night observation metrics
 
-`compute_night_observation()` calculates, for each individual × night:
+`compute_night_observation()` calculates, for each night:
 
 - `time_roosting_hr` — total roost interval duration
-- `observed_time_hr` — time with detections (gaps > 10 min treated as out-of-range)
+- `n_bins_detected` — number of 2-minute bins with at least one detection
+- `observed_time_hr` — `n_bins_detected × 2 / 60`
 - `prop_time_observed` — coverage fraction
 
 ```{r night-obs}
-night_metrics <- compute_night_observation(sp, gap_threshold = 10)
+night_metrics <- compute_night_observation(sp, bin_size_min = 2)
 summary(night_metrics[c("time_roosting_hr", "observed_time_hr",
                          "prop_time_observed")])
 
 sp <- sp |>
-  select(-any_of(setdiff(names(night_metrics), c("tagDeployID", "doy")))) |>
-  left_join(night_metrics, by = c("tagDeployID", "doy"))
+  select(-any_of(setdiff(names(night_metrics), "doy"))) |>
+  left_join(night_metrics, by = "doy")
 ```
 
 ---
@@ -261,15 +274,17 @@ sp <- sp |>
 ## Step 8: Restlessness
 
 `calc_restless_all()` counts bouts of elevated activity (`sig.diff > 4`)
-within the roost interval:
+within the roost interval. Single-ping spikes are given a minimum duration
+of ~22 seconds (`min_bout_min = 22/60`), matching the tag pulse interval:
 
 ```{r restless}
 restless_summary <- calc_restless_all(sp,
                                       spike_threshold = 4,
-                                      gap_min = 2)
+                                      gap_min         = 5,
+                                      min_bout_min    = 22 / 60)
 sp <- sp |>
-  select(-any_of(setdiff(names(restless_summary), c("tagDeployID", "doy")))) |>
-  left_join(restless_summary, by = c("tagDeployID", "doy"))
+  select(-any_of(setdiff(names(restless_summary), "doy"))) |>
+  left_join(restless_summary, by = "doy")
 ```
 
 `add_spike_bouts()` annotates individual detections for plotting:
@@ -278,7 +293,7 @@ sp <- sp |>
 sp <- sp |>
   select(-any_of(c("interval_start", "interval_end", "in_roost_interval",
                    "spike", "dt", "new_bout", "bout_id"))) |>
-  add_spike_bouts(spike_threshold = 4, gap_min = 2)
+  add_spike_bouts(spike_threshold = 4, gap_min = 5)
 ```
 
 ```{r plot-spikes, fig.cap="Restlessness spikes (red) during the roost interval"}
@@ -296,21 +311,29 @@ coverage are comparable:
 ```{r restless-rates}
 restless_rates <- calc_restless_rates(sp)
 sp <- sp |>
-  select(-any_of(setdiff(names(restless_rates), c("tagDeployID", "doy")))) |>
-  left_join(restless_rates, by = c("tagDeployID", "doy"))
+  select(-any_of(setdiff(names(restless_rates), "doy"))) |>
+  left_join(restless_rates, by = "doy")
 ```
 
 ---
 
-## Step 9: Summary plots
+## Step 9: Antenna bearing summary
+
+`calc_bearing_summary()` computes the circular mean and modal antenna
+bearing during each roost interval. This can reveal directional roosting
+patterns relative to the receiver array:
+
+```{r bearing}
+bearing_summary <- calc_bearing_summary(sp)
+bearing_summary
+```
+
+---
+
+## Step 10: Summary plots
 
 ```{r plot-summary, fig.cap="Roost and departure timing relative to sunset and sunrise"}
-night_plot <- sp %>%
-  distinct(tagDeployID, doy, roost_hour, leave_roost_hour,
-           sunset_hour, sunrise_hour, prop_time_restless,
-           restless_per_obs_hr)
-
-# Convert to EST for interpretability
+# Convert to local time for interpretability
 sp_est <- sp %>%
   mutate(
     roost_time_est = lubridate::with_tz(roost_time, "America/New_York"),
@@ -327,7 +350,7 @@ sp_est <- sp %>%
                          lubridate::minute(sunset_est)  / 60
   )
 
-night_est <- distinct(sp_est, tagDeployID, doy, roost_hour_est,
+night_est <- distinct(sp_est, doy, roost_hour_est,
                       leave_hour_est, sunrise_hour_est, sunset_hour_est,
                       prop_time_restless, restless_per_obs_hr)
 

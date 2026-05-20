@@ -6,3 +6,14 @@
 ^LICENSE\.md$
 ^doc$
 ^Meta$
+^CLAUDE\.md$
+^Data\.Prep\.R$
+^roost_workflow\.R$
+^figures$
+^data/junco\.clean$
+^data/step1_preproc$
+^data/step2_roost$
+^data/step3_metrics$
+^data/step4_restless$
+^data/results$
+\.tmp\.

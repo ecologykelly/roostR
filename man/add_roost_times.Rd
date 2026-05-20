@@ -8,7 +8,7 @@ add_roost_times(
   data,
   roost_df,
   leave_df,
-  id_col = "tagDeployID",
+  id_col = "recvDeployName",
   doy_col = "doy"
 )
 }
@@ -16,12 +16,13 @@ add_roost_times(
 \item{data}{A dataframe of Motus detections.}
 
 \item{roost_df}{Dataframe. Output of \code{\link[=detect_roost_onset]{detect_roost_onset()}}, containing
-\code{id_col}, \code{doy_col}, and \code{roost_time}.}
+\code{doy_col} and \code{roost_time}.}
 
 \item{leave_df}{Dataframe. Output of \code{\link[=detect_roost_departure]{detect_roost_departure()}}, containing
-\code{id_col}, \code{doy_col}, and \code{leave_roost_time}.}
+\code{doy_col} and \code{leave_roost_time}.}
 
-\item{id_col}{Character. Individual identifier column. Default \code{"tagDeployID"}.}
+\item{id_col}{Character. Individual identifier column (retained for API
+consistency). Default \code{"recvDeployName"}.}
 
 \item{doy_col}{Character. Day-of-year column. Default \code{"doy"}.}
 }
@@ -33,10 +34,13 @@ The input \code{data} with two new columns:
 }
 }
 \description{
-Performs left joins to attach the per-individual × day-of-year roost onset
-and departure times (from \code{\link[=detect_roost_onset]{detect_roost_onset()}} and
-\code{\link[=detect_roost_departure]{detect_roost_departure()}}) as columns on the full detection dataframe.
-Rows with no detected roost onset or departure receive \code{NA}.
+Performs left joins to attach per-night roost onset and departure times
+(from \code{\link[=detect_roost_onset]{detect_roost_onset()}} and \code{\link[=detect_roost_departure]{detect_roost_departure()}}) as columns on
+the full detection dataframe. Because roost and departure times are detected
+on combined-receiver data and represent a single value per night, the join
+is by \code{doy_col} only — all receivers on the same night receive the same
+roost and departure times. Rows with no detected onset or departure receive
+\code{NA}.
 }
 \examples{
 \dontrun{

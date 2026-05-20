@@ -6,20 +6,20 @@
 \usage{
 add_spike_bouts(
   data,
-  id_col = "tagDeployID",
+  id_col = "recvDeployName",
   doy_col = "doy",
   time_col = "time",
   roost_col = "roost_time",
   leave_col = "leave_roost_time",
   spike_col = "sig.diff",
   spike_threshold = 4,
-  gap_min = 2
+  gap_min = 5
 )
 }
 \arguments{
 \item{data}{A dataframe of Motus detections with roost timing columns.}
 
-\item{id_col}{Character. Individual identifier column. Default \code{"tagDeployID"}.}
+\item{id_col}{Character. Individual identifier column. Default \code{"recvDeployName"}.}
 
 \item{doy_col}{Character. Day-of-year column. Default \code{"doy"}.}
 
@@ -34,7 +34,7 @@ add_spike_bouts(
 \item{spike_threshold}{Numeric. Values above this are spikes. Default \code{4}.}
 
 \item{gap_min}{Numeric. Gaps greater than this many minutes between spikes
-begin a new bout. Default \code{2}.}
+begin a new bout. Default \code{5}.}
 }
 \value{
 The input dataframe with additional columns:
@@ -44,8 +44,7 @@ The input dataframe with additional columns:
 roost interval.
 \item \code{spike}: logical, \code{TRUE} if \code{spike_col > spike_threshold} and within
 the roost interval.
-\item \code{dt}: minutes since the previous detection within the same
-individual × day group.
+\item \code{dt}: minutes since the previous detection in the same night group.
 \item \code{new_bout}: \code{1L} if this spike starts a new bout, \code{0L} otherwise.
 \item \code{bout_id}: integer bout identifier; \code{NA} for non-spike rows.
 }
@@ -57,13 +56,17 @@ dataframe. Useful for plotting individual restlessness events or for
 further row-level filtering.
 }
 \details{
-Spike and bout detection logic is identical to \code{\link[=calc_restless_all]{calc_restless_all()}}.
-Only detections within the biological night interval are flagged; all
-other rows receive \code{spike = FALSE} and \code{bout_id = NA}.
+Spike and bout detection logic is similar to \code{\link[=calc_restless_all]{calc_restless_all()}}. Only
+detections within the biological night interval are flagged; all other rows
+receive \code{spike = FALSE} and \code{bout_id = NA}.
+
+Post-midnight rows (UTC hour < 20) are assigned to the previous calendar
+night via a \code{night_doy} helper column; this ensures correct interval
+matching without modifying the original \code{doy} column.
 }
 \examples{
 \dontrun{
-sp <- add_spike_bouts(sp, spike_threshold = 4, gap_min = 2)
+sp <- add_spike_bouts(sp, spike_threshold = 4, gap_min = 5)
 
 library(ggplot2)
 ggplot(sp, aes(x = time, y = sig.diff)) +

@@ -6,7 +6,8 @@
 \usage{
 add_signal_diffs(
   data,
-  id_col = "tagDeployID",
+  id_col = "recvDeployName",
+  port_col = "port",
   time_col = "time",
   sig_col = "sig",
   sig_mean_col = "sig.mean"
@@ -16,7 +17,9 @@ add_signal_diffs(
 \item{data}{A dataframe of Motus detections, typically the output of
 \code{\link[=collapse_motus_time]{collapse_motus_time()}}.}
 
-\item{id_col}{Character. Individual identifier column. Default \code{"tagDeployID"}.}
+\item{id_col}{Character. Individual identifier column. Default \code{"recvDeployName"}.}
+
+\item{port_col}{Character. Antenna port column. Default \code{"port"}.}
 
 \item{time_col}{Character. POSIXct timestamp column (UTC). Default \code{"time"}.}
 
@@ -36,11 +39,11 @@ the first detection (no prior observation to compare).
 }
 }
 \description{
-For each individual, calculates the absolute change in signal strength
-between consecutive detections (\code{sig.diff}, \code{sig.diff.mean}) and the
-elapsed time between them (\code{time.diff}). These are the primary behavioral
-activity proxies used in downstream analyses — larger signal changes
-indicate more movement near the receiver tower.
+For each individual and port, calculates the absolute change in signal
+strength between consecutive detections (\code{sig.diff}, \code{sig.diff.mean}) and
+the elapsed time between them (\code{time.diff}). These are the primary behavioral
+activity proxies used in downstream analyses — larger signal changes indicate
+more movement near the receiver tower.
 }
 \examples{
 \dontrun{

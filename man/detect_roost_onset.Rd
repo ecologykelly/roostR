@@ -6,20 +6,22 @@
 \usage{
 detect_roost_onset(
   data,
-  id_col = "tagDeployID",
+  id_col = "recvDeployName",
   time_col = "time",
   doy_col = "doy",
   sunset_col = "Sunset",
   vol_col = "roll_vol",
   window_minutes = 90,
   vol_threshold = 3,
-  min_duration = 10
+  min_duration = 10,
+  confirm_min = 30,
+  confirm_frac = 0.8
 )
 }
 \arguments{
 \item{data}{A dataframe of Motus detections with a rolling median column.}
 
-\item{id_col}{Character. Individual identifier column. Default \code{"tagDeployID"}.}
+\item{id_col}{Character. Individual identifier column. Default \code{"recvDeployName"}.}
 
 \item{time_col}{Character. POSIXct timestamp column (UTC). Default \code{"time"}.}
 
@@ -34,33 +36,45 @@ detect_roost_onset(
 sunset, in minutes. Default \code{90}.}
 
 \item{vol_threshold}{Numeric. Rolling median must fall below this value to
-qualify as a roost detection. Default \code{3}.}
+qualify as a low-activity detection. Default \code{3}.}
 
 \item{min_duration}{Numeric. Minimum duration (minutes) of sustained low
-activity required before calling roost onset. Default \code{10}.}
+activity required for a candidate run. Default \code{10}.}
+
+\item{confirm_min}{Numeric. Duration (minutes) of the confirmation window
+following each candidate onset. Default \code{30}.}
+
+\item{confirm_frac}{Numeric. Minimum fraction of detections within the
+confirmation window that must be low-volatility for the candidate to be
+accepted. Default \code{0.8}.}
 }
 \value{
-A dataframe with one row per individual × day-of-year combination
-where a roost onset was detected, containing columns \code{id_col}, \code{doy_col},
-and \code{roost_time} (POSIXct UTC).
+A dataframe with one row per (\code{id_col}, \code{doy_col}) combination where
+a confirmed roost onset was detected, containing columns \code{id_col},
+\code{doy_col}, and \code{roost_time} (POSIXct UTC).
 }
 \description{
-Finds the time each individual first enters sustained low-activity state
+Finds the time each individual first enters a sustained low-activity state
 near sunset — interpreted as roosting. The algorithm:
 \enumerate{
 \item Restricts detections to a window of ± \code{window_minutes} around sunset.
 \item Flags observations where the rolling median (\code{vol_col}) falls below
 \code{vol_threshold}.
-\item Identifies runs of consecutive low-activity observations using
-\code{\link[data.table:rleid]{data.table::rleid()}}.
-\item Returns the start time of the first run whose duration exceeds
-\code{min_duration} minutes.
+\item Identifies consecutive low-activity runs using \code{\link[data.table:rleid]{data.table::rleid()}}.
+\item Filters runs meeting \code{min_duration} minutes of sustained quiet.
+\item For each candidate, checks that the following \code{confirm_min} minutes
+contain at least \code{confirm_frac} low-volatility detections (confirmation
+window). Candidates failing this check are discarded.
+\item For passing candidates, additionally checks that the period after the
+confirmation window (until \code{window_end}) does not show resumed high
+activity. Candidates with post-window activity below \code{confirm_frac}
+low-vol are discarded.
+\item Returns the latest surviving confirmed onset per bird-night.
 }
 }
 \details{
-Default thresholds (\code{vol_threshold = 3}, \code{min_duration = 10}) are tuned
-to dark-eyed junco data where night rolling-median ≈ 1 and day ≈ 5. Adjust
-for other species or transmitter types.
+Default thresholds are tuned to dark-eyed junco data. Adjust for other
+species or transmitter types.
 
 Requires \code{\link[=add_roll_median]{add_roll_median()}} to have been called first.
 }

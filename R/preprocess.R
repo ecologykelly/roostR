@@ -2,21 +2,20 @@
 #'
 #' A Motus tag can be detected simultaneously on up to four antennas at the
 #' same receiver. This function reduces those duplicate rows to a single row
-#' per individual per timestamp, retaining the maximum signal strength and
-#' computing the mean signal across antennas.
+#' per individual per port per timestamp, retaining the maximum signal strength
+#' and computing the mean signal across antennas.
 #'
 #' @param data A dataframe of Motus detections. Must contain columns named by
-#'   `id_col`, `time_col`, and `sig_col`.
+#'   `id_col`, `port_col`, `time_col`, and `sig_col`.
 #' @param id_col Character. Column identifying individual animals (deployment-
-#'   specific). Default `"tagDeployID"`. Using `tagDeployID` rather than
-#'   `motusTagID` correctly handles cases where a physical tag is redeployed
-#'   on a different animal.
+#'   specific). Default `"recvDeployName"`.
+#' @param port_col Character. Antenna port column. Default `"port"`.
 #' @param time_col Character. POSIXct timestamp column (UTC). Default `"time"`.
 #' @param sig_col Character. Signal strength column (dBm). Default `"sig"`.
 #'
-#' @return The input dataframe collapsed to one row per (`id_col`, `time_col`)
-#'   combination. All non-signal columns retain their first value within each
-#'   group. Two columns are added or modified:
+#' @return The input dataframe collapsed to one row per (`id_col`, `port_col`,
+#'   `time_col`) combination. All non-signal columns retain their first value
+#'   within each group. Two columns are added or modified:
 #'   - `sig`: maximum signal across antennas at that timestamp.
 #'   - `sig.mean`: mean signal across antennas at that timestamp.
 #'
@@ -29,15 +28,16 @@
 #' @importFrom dplyr group_by summarise across everything first
 #' @export
 collapse_motus_time <- function(data,
-                                id_col = "tagDeployID",
+                                id_col   = "recvDeployName",
+                                port_col = "port",
                                 time_col = "time",
-                                sig_col = "sig") {
+                                sig_col  = "sig") {
   data %>%
-    dplyr::group_by(.data[[id_col]], .data[[time_col]]) %>%
+    dplyr::group_by(.data[[id_col]], .data[[port_col]], .data[[time_col]]) %>%
     dplyr::summarise(
       dplyr::across(dplyr::everything(), dplyr::first),
       !!sig_col := max(.data[[sig_col]], na.rm = TRUE),
-      sig.mean = mean(.data[[sig_col]], na.rm = TRUE),
+      sig.mean   = mean(.data[[sig_col]], na.rm = TRUE),
       .groups = "drop"
     )
 }
@@ -45,15 +45,16 @@ collapse_motus_time <- function(data,
 
 #' Compute signal differences and inter-detection intervals
 #'
-#' For each individual, calculates the absolute change in signal strength
-#' between consecutive detections (`sig.diff`, `sig.diff.mean`) and the
-#' elapsed time between them (`time.diff`). These are the primary behavioral
-#' activity proxies used in downstream analyses — larger signal changes
-#' indicate more movement near the receiver tower.
+#' For each individual and port, calculates the absolute change in signal
+#' strength between consecutive detections (`sig.diff`, `sig.diff.mean`) and
+#' the elapsed time between them (`time.diff`). These are the primary behavioral
+#' activity proxies used in downstream analyses — larger signal changes indicate
+#' more movement near the receiver tower.
 #'
 #' @param data A dataframe of Motus detections, typically the output of
 #'   [collapse_motus_time()].
-#' @param id_col Character. Individual identifier column. Default `"tagDeployID"`.
+#' @param id_col Character. Individual identifier column. Default `"recvDeployName"`.
+#' @param port_col Character. Antenna port column. Default `"port"`.
 #' @param time_col Character. POSIXct timestamp column (UTC). Default `"time"`.
 #' @param sig_col Character. Maximum signal column. Default `"sig"`.
 #' @param sig_mean_col Character. Mean signal column. Default `"sig.mean"`.
@@ -75,12 +76,13 @@ collapse_motus_time <- function(data,
 #' @importFrom dplyr group_by arrange mutate ungroup lag
 #' @export
 add_signal_diffs <- function(data,
-                             id_col = "tagDeployID",
-                             time_col = "time",
-                             sig_col = "sig",
+                             id_col       = "recvDeployName",
+                             port_col     = "port",
+                             time_col     = "time",
+                             sig_col      = "sig",
                              sig_mean_col = "sig.mean") {
   data %>%
-    dplyr::group_by(.data[[id_col]]) %>%
+    dplyr::group_by(.data[[id_col]], .data[[port_col]]) %>%
     dplyr::arrange(.data[[time_col]], .by_group = TRUE) %>%
     dplyr::mutate(
       sig.diff = abs(.data[[sig_col]] - dplyr::lag(.data[[sig_col]])),
@@ -111,7 +113,7 @@ add_signal_diffs <- function(data,
 #' `time.diff`).
 #'
 #' @param data A dataframe of Motus detections with a `time.diff` column.
-#' @param id_col Character. Individual identifier column. Default `"tagDeployID"`.
+#' @param id_col Character. Individual identifier column. Default `"recvDeployName"`.
 #' @param time_col Character. Timestamp column. Default `"time"`.
 #' @param time_diff_col Character. Elapsed-time column in minutes, from
 #'   [add_signal_diffs()]. Default `"time.diff"`.
@@ -136,17 +138,17 @@ add_signal_diffs <- function(data,
 #' @importFrom data.table rleid
 #' @export
 add_continuity_flags <- function(data,
-                                 id_col = "tagDeployID",
-                                 time_col = "time",
+                                 id_col        = "recvDeployName",
+                                 time_col      = "time",
                                  time_diff_col = "time.diff",
-                                 threshold = 2) {
+                                 threshold     = 2) {
   data %>%
     dplyr::group_by(.data[[id_col]]) %>%
     dplyr::arrange(.data[[time_col]], .by_group = TRUE) %>%
     dplyr::mutate(
       continuous = ifelse(.data[[time_diff_col]] <= threshold, 1, 0),
       continuous = ifelse(is.na(continuous), 0, continuous),
-      gap = .data[[time_diff_col]] > threshold
+      gap        = .data[[time_diff_col]] > threshold
     ) %>%
     dplyr::mutate(
       run.id = data.table::rleid(continuous)
@@ -155,56 +157,57 @@ add_continuity_flags <- function(data,
 }
 
 
-#' Compute a centered rolling median of signal differences
+#' Compute a time-indexed centered rolling median of signal differences
 #'
-#' Smooths the signal difference series using a centered rolling median window.
-#' This suppresses micro-spikes caused by antenna switching or brief movements
-#' while preserving genuine behavioral regime shifts (e.g., settling into roost
-#' vs. active flight).
+#' Smooths the signal difference series using a time-indexed centered rolling
+#' median window (via [slider::slide_index_dbl()]). This suppresses micro-spikes
+#' caused by antenna switching or brief movements while preserving genuine
+#' behavioral regime shifts (e.g., settling into roost vs. active flight).
 #'
-#' At a ~20–25 second ping interval, the default window of `k = 25`
-#' observations covers approximately 8–10 minutes. Window size must be odd for
-#' symmetric centering. The first and last `floor(k/2)` rows per individual
-#' will be `NA` due to the centered alignment.
+#' Unlike an observation-count window, this approach uses actual elapsed time
+#' so it handles irregular detection intervals correctly. The default 15-minute
+#' window (±7.5 min each side) is suitable for Motus tags pinging every 20–25
+#' seconds.
 #'
 #' @param data A dataframe of Motus detections with a signal difference column.
-#' @param id_col Character. Individual identifier column. Default `"tagDeployID"`.
-#' @param time_col Character. Timestamp column. Default `"time"`.
+#' @param id_col Character. Individual identifier column. Default `"recvDeployName"`.
+#' @param time_col Character. POSIXct timestamp column. Default `"time"`.
 #' @param value_col Character. Column to smooth. Default `"sig.diff.mean"`.
-#' @param k Integer. Rolling window width in number of observations. Must be
-#'   odd. Default `25` (≈ 8–10 min at a 20 sec ping interval).
+#' @param window_min Numeric. Total rolling window width in minutes. The window
+#'   extends ±`window_min/2` minutes around each observation. Default `15`.
 #' @param new_col Character. Name of the output smoothed column.
 #'   Default `"roll_vol"`.
 #'
 #' @return The input dataframe with one new column (`new_col`) containing the
-#'   centered rolling median. Edge values within `floor(k/2)` observations of
-#'   the start or end of each individual's series are `NA`.
+#'   time-indexed rolling median.
 #'
 #' @examples
 #' \dontrun{
 #' sp <- collapse_motus_time(sparrow52550)
 #' sp <- add_signal_diffs(sp)
-#' sp <- add_roll_median(sp, k = 25)
+#' sp <- add_roll_median(sp, window_min = 15)
 #' }
 #'
 #' @importFrom dplyr group_by arrange mutate ungroup
-#' @importFrom zoo rollmedian
+#' @importFrom slider slide_index_dbl
 #' @export
 add_roll_median <- function(data,
-                            id_col = "tagDeployID",
-                            time_col = "time",
-                            value_col = "sig.diff.mean",
-                            k = 25,
-                            new_col = "roll_vol") {
+                            id_col     = "recvDeployName",
+                            time_col   = "time",
+                            value_col  = "sig.diff.mean",
+                            window_min = 15,
+                            new_col    = "roll_vol") {
+  half <- as.difftime(window_min / 2, units = "mins")
   data %>%
     dplyr::group_by(.data[[id_col]]) %>%
     dplyr::arrange(.data[[time_col]], .by_group = TRUE) %>%
     dplyr::mutate(
-      !!new_col := zoo::rollmedian(
-        .data[[value_col]],
-        k = k,
-        fill = NA,
-        align = "center"
+      !!new_col := slider::slide_index_dbl(
+        .x      = .data[[value_col]],
+        .i      = .data[[time_col]],
+        .f      = ~ median(.x, na.rm = TRUE),
+        .before = half,
+        .after  = half
       )
     ) %>%
     dplyr::ungroup()

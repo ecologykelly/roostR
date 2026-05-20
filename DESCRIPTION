@@ -1,6 +1,6 @@
 Package: roostR
 Title: Activity Pattern Analysis for Motus Radio-Telemetry Data
-Version: 0.1.0
+Version: 0.2.0
 Authors@R:
     person("Kelly", "Williams", role = c("aut", "cre"),
            email = "williak5@ohio.edu")
@@ -18,7 +18,8 @@ Imports:
     lubridate,
     magrittr,
     zoo,
-    data.table
+    data.table,
+    slider
 Suggests:
     ggplot2,
     viridis,

@@ -2,54 +2,53 @@
 % Please edit documentation in R/preprocess.R
 \name{add_roll_median}
 \alias{add_roll_median}
-\title{Compute a centered rolling median of signal differences}
+\title{Compute a time-indexed centered rolling median of signal differences}
 \usage{
 add_roll_median(
   data,
-  id_col = "tagDeployID",
+  id_col = "recvDeployName",
   time_col = "time",
   value_col = "sig.diff.mean",
-  k = 25,
+  window_min = 15,
   new_col = "roll_vol"
 )
 }
 \arguments{
 \item{data}{A dataframe of Motus detections with a signal difference column.}
 
-\item{id_col}{Character. Individual identifier column. Default \code{"tagDeployID"}.}
+\item{id_col}{Character. Individual identifier column. Default \code{"recvDeployName"}.}
 
-\item{time_col}{Character. Timestamp column. Default \code{"time"}.}
+\item{time_col}{Character. POSIXct timestamp column. Default \code{"time"}.}
 
 \item{value_col}{Character. Column to smooth. Default \code{"sig.diff.mean"}.}
 
-\item{k}{Integer. Rolling window width in number of observations. Must be
-odd. Default \code{25} (≈ 8–10 min at a 20 sec ping interval).}
+\item{window_min}{Numeric. Total rolling window width in minutes. The window
+extends ±\code{window_min/2} minutes around each observation. Default \code{15}.}
 
 \item{new_col}{Character. Name of the output smoothed column.
 Default \code{"roll_vol"}.}
 }
 \value{
 The input dataframe with one new column (\code{new_col}) containing the
-centered rolling median. Edge values within \code{floor(k/2)} observations of
-the start or end of each individual's series are \code{NA}.
+time-indexed rolling median.
 }
 \description{
-Smooths the signal difference series using a centered rolling median window.
-This suppresses micro-spikes caused by antenna switching or brief movements
-while preserving genuine behavioral regime shifts (e.g., settling into roost
-vs. active flight).
+Smooths the signal difference series using a time-indexed centered rolling
+median window (via \code{\link[slider:slide_index]{slider::slide_index_dbl()}}). This suppresses micro-spikes
+caused by antenna switching or brief movements while preserving genuine
+behavioral regime shifts (e.g., settling into roost vs. active flight).
 }
 \details{
-At a ~20–25 second ping interval, the default window of \code{k = 25}
-observations covers approximately 8–10 minutes. Window size must be odd for
-symmetric centering. The first and last \code{floor(k/2)} rows per individual
-will be \code{NA} due to the centered alignment.
+Unlike an observation-count window, this approach uses actual elapsed time
+so it handles irregular detection intervals correctly. The default 15-minute
+window (±7.5 min each side) is suitable for Motus tags pinging every 20–25
+seconds.
 }
 \examples{
 \dontrun{
 sp <- collapse_motus_time(sparrow52550)
 sp <- add_signal_diffs(sp)
-sp <- add_roll_median(sp, k = 25)
+sp <- add_roll_median(sp, window_min = 15)
 }
 
 }

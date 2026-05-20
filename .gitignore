@@ -5,3 +5,11 @@
 inst/doc
 /doc/
 /Meta/
+*.tmp.*
+data/junco.clean/
+data/step1_preproc/
+data/step2_roost/
+data/step3_metrics/
+data/step4_restless/
+data/results/
+figures/

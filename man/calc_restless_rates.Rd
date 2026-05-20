@@ -6,7 +6,7 @@
 \usage{
 calc_restless_rates(
   data,
-  id_col = "tagDeployID",
+  id_col = "recvDeployName",
   doy_col = "doy",
   bouts_col = "n_bouts",
   restless_min_col = "total_restless_min",
@@ -18,7 +18,7 @@ calc_restless_rates(
 after joining outputs of \code{\link[=calc_restless_all]{calc_restless_all()}} and
 \code{\link[=compute_night_observation]{compute_night_observation()}} back to the detection data.}
 
-\item{id_col}{Character. Individual identifier column. Default \code{"tagDeployID"}.}
+\item{id_col}{Character. Individual identifier column. Default \code{"recvDeployName"}.}
 
 \item{doy_col}{Character. Day-of-year column. Default \code{"doy"}.}
 
@@ -32,8 +32,8 @@ Default \code{"total_restless_min"}.}
 \code{\link[=compute_night_observation]{compute_night_observation()}}. Default \code{"observed_time_hr"}.}
 }
 \value{
-A dataframe with one row per individual × day-of-year, containing
-the input columns plus:
+A dataframe with one row per \code{doy_col}, containing the input columns
+plus:
 \itemize{
 \item \code{total_restless_hr}: \code{total_restless_min / 60}.
 \item \code{restless_per_obs_hr}: bouts per observed hour (\code{NA} if

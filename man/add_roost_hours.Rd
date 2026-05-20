@@ -4,7 +4,13 @@
 \alias{add_roost_hours}
 \title{Convert roost onset and departure times to decimal hour-of-day}
 \usage{
-add_roost_hours(data, roost_col = "roost_time", leave_col = "leave_roost_time")
+add_roost_hours(
+  data,
+  roost_col = "roost_time",
+  leave_col = "leave_roost_time",
+  sunset_col = "Sunset",
+  sunrise_col = "Sunrise"
+)
 }
 \arguments{
 \item{data}{A dataframe containing roost onset and departure POSIXct columns,
@@ -15,12 +21,18 @@ Default \code{"roost_time"}.}
 
 \item{leave_col}{Character. Departure time column (POSIXct).
 Default \code{"leave_roost_time"}.}
+
+\item{sunset_col}{Character. Sunset time column (POSIXct). Default \code{"Sunset"}.}
+
+\item{sunrise_col}{Character. Sunrise time column (POSIXct). Default \code{"Sunrise"}.}
 }
 \value{
-The input dataframe with two new numeric columns:
+The input dataframe with four new numeric columns:
 \itemize{
 \item \code{roost_hour}: decimal hour of the roost onset time, or \code{NA}.
 \item \code{leave_roost_hour}: decimal hour of the departure time, or \code{NA}.
+\item \code{sunset_hour}: decimal hour of sunset.
+\item \code{sunrise_hour}: decimal hour of sunrise.
 }
 }
 \description{

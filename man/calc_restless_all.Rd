@@ -6,20 +6,21 @@
 \usage{
 calc_restless_all(
   data,
-  id_col = "tagDeployID",
+  id_col = "recvDeployName",
   doy_col = "doy",
   time_col = "time",
   roost_col = "roost_time",
   leave_col = "leave_roost_time",
   spike_col = "sig.diff",
   spike_threshold = 4,
-  gap_min = 2
+  gap_min = 5,
+  min_bout_min = 22/60
 )
 }
 \arguments{
 \item{data}{A dataframe of Motus detections with roost timing columns.}
 
-\item{id_col}{Character. Individual identifier column. Default \code{"tagDeployID"}.}
+\item{id_col}{Character. Individual identifier column. Default \code{"recvDeployName"}.}
 
 \item{doy_col}{Character. Day-of-year column. Default \code{"doy"}.}
 
@@ -34,31 +35,42 @@ calc_restless_all(
 \item{spike_threshold}{Numeric. Values above this are spikes. Default \code{4}.}
 
 \item{gap_min}{Numeric. Gaps greater than this many minutes between spikes
-begin a new bout. Default \code{2}.}
+begin a new bout. Default \code{5}.}
+
+\item{min_bout_min}{Numeric. Minimum bout duration in minutes, applied via
+\code{\link[=pmax]{pmax()}} so single-ping bouts have non-zero duration.
+Default \code{22/60} (~22 seconds, one ping interval).}
 }
 \value{
-A dataframe with one row per individual × day-of-year (nights with
-a complete roost interval), containing:
+A dataframe with one row per \code{doy_col} (nights with a complete roost
+interval), containing:
 \itemize{
-\item \code{id_col}, \code{doy_col}
+\item \code{doy_col}
 \item \code{n_bouts}: number of restlessness bouts.
 \item \code{total_restless_min}: total minutes spent in restlessness bouts.
 \item \code{max_bout_min}: duration of the longest single bout.
 }
 }
 \description{
-For each individual × day-of-year, counts restlessness events (signal
-spikes) that occur within the biological night interval (roost onset on
-day \emph{d} to departure on day \emph{d+1}).
+For each day-of-year, counts restlessness events (signal spikes) that occur
+within the biological night interval (roost onset on day \emph{d} to departure on
+day \emph{d+1}).
 }
 \details{
-A \strong{spike} is any detection where \code{spike_col > spike_threshold}.
-A new \strong{bout} begins when a spike is separated from the previous spike by
-more than \code{gap_min} minutes, or when it follows a non-spike observation.
-Bout duration is measured from the first to the last spike in the bout.
+A \strong{spike} is any detection where \code{spike_col > spike_threshold}. A new
+\strong{bout} begins when a spike is separated from the previous spike by more
+than \code{gap_min} minutes, or when it follows a non-spike observation. Bout
+duration is measured from the first to the last spike in the bout, with a
+minimum of \code{min_bout_min} minutes (giving single-ping spikes a non-zero
+duration).
 
-Default thresholds (\code{spike_threshold = 4}, \code{gap_min = 2}) are tuned to
-dark-eyed junco data. Requires \code{\link[=add_roost_times]{add_roost_times()}} to have been called.
+This function works on data collapsed across receivers: it takes the max
+signal per (doy, time) before identifying bouts, so receiver interleaving
+does not inflate bout counts.
+
+Default thresholds (\code{spike_threshold = 4}, \code{gap_min = 5},
+\code{min_bout_min = 22/60}) are tuned to dark-eyed junco data with a ~22-second
+ping interval. Requires \code{\link[=add_roost_times]{add_roost_times()}} to have been called.
 }
 \examples{
 \dontrun{

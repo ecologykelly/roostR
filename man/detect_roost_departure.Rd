@@ -6,7 +6,7 @@
 \usage{
 detect_roost_departure(
   data,
-  id_col = "tagDeployID",
+  id_col = "recvDeployName",
   time_col = "time",
   doy_col = "doy",
   sunrise_col = "Sunrise",
@@ -21,7 +21,7 @@ detect_roost_departure(
 \arguments{
 \item{data}{A dataframe of Motus detections with a signal difference column.}
 
-\item{id_col}{Character. Individual identifier column. Default \code{"tagDeployID"}.}
+\item{id_col}{Character. Individual identifier column. Default \code{"recvDeployName"}.}
 
 \item{time_col}{Character. POSIXct timestamp column (UTC). Default \code{"time"}.}
 
@@ -48,9 +48,9 @@ an activity spike. Default \code{4}.}
 value simultaneously with the spike. Default \code{3}.}
 }
 \value{
-A dataframe with one row per individual × day-of-year combination
-where a departure was detected, containing columns \code{id_col}, \code{doy_col},
-and \code{leave_roost_time} (POSIXct UTC).
+A dataframe with one row per (\code{id_col}, \code{doy_col}) combination where
+a departure was detected, containing columns \code{id_col}, \code{doy_col}, and
+\code{leave_roost_time} (POSIXct UTC).
 }
 \description{
 Finds the time each individual first shows sustained activity after roosting,

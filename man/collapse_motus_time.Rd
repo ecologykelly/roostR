@@ -6,28 +6,29 @@
 \usage{
 collapse_motus_time(
   data,
-  id_col = "tagDeployID",
+  id_col = "recvDeployName",
+  port_col = "port",
   time_col = "time",
   sig_col = "sig"
 )
 }
 \arguments{
 \item{data}{A dataframe of Motus detections. Must contain columns named by
-\code{id_col}, \code{time_col}, and \code{sig_col}.}
+\code{id_col}, \code{port_col}, \code{time_col}, and \code{sig_col}.}
 
 \item{id_col}{Character. Column identifying individual animals (deployment-
-specific). Default \code{"tagDeployID"}. Using \code{tagDeployID} rather than
-\code{motusTagID} correctly handles cases where a physical tag is redeployed
-on a different animal.}
+specific). Default \code{"recvDeployName"}.}
+
+\item{port_col}{Character. Antenna port column. Default \code{"port"}.}
 
 \item{time_col}{Character. POSIXct timestamp column (UTC). Default \code{"time"}.}
 
 \item{sig_col}{Character. Signal strength column (dBm). Default \code{"sig"}.}
 }
 \value{
-The input dataframe collapsed to one row per (\code{id_col}, \code{time_col})
-combination. All non-signal columns retain their first value within each
-group. Two columns are added or modified:
+The input dataframe collapsed to one row per (\code{id_col}, \code{port_col},
+\code{time_col}) combination. All non-signal columns retain their first value
+within each group. Two columns are added or modified:
 \itemize{
 \item \code{sig}: maximum signal across antennas at that timestamp.
 \item \code{sig.mean}: mean signal across antennas at that timestamp.
@@ -36,8 +37,8 @@ group. Two columns are added or modified:
 \description{
 A Motus tag can be detected simultaneously on up to four antennas at the
 same receiver. This function reduces those duplicate rows to a single row
-per individual per timestamp, retaining the maximum signal strength and
-computing the mean signal across antennas.
+per individual per port per timestamp, retaining the maximum signal strength
+and computing the mean signal across antennas.
 }
 \examples{
 \dontrun{

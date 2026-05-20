@@ -6,7 +6,7 @@
 \usage{
 add_continuity_flags(
   data,
-  id_col = "tagDeployID",
+  id_col = "recvDeployName",
   time_col = "time",
   time_diff_col = "time.diff",
   threshold = 2
@@ -15,7 +15,7 @@ add_continuity_flags(
 \arguments{
 \item{data}{A dataframe of Motus detections with a \code{time.diff} column.}
 
-\item{id_col}{Character. Individual identifier column. Default \code{"tagDeployID"}.}
+\item{id_col}{Character. Individual identifier column. Default \code{"recvDeployName"}.}
 
 \item{time_col}{Character. Timestamp column. Default \code{"time"}.}
 

@@ -6,21 +6,19 @@
 \usage{
 compute_night_observation(
   data,
-  id_col = "tagDeployID",
+  id_col = "recvDeployName",
   doy_col = "doy",
   time_col = "time",
   roost_col = "roost_time",
   leave_col = "leave_roost_time",
-  sunset_col = "Sunset",
-  sunrise_col = "Sunrise",
-  gap_threshold = 10
+  bin_size_min = 2
 )
 }
 \arguments{
 \item{data}{A dataframe of Motus detections with roost timing columns,
 typically after calling \code{\link[=add_roost_times]{add_roost_times()}}.}
 
-\item{id_col}{Character. Individual identifier column. Default \code{"tagDeployID"}.}
+\item{id_col}{Character. Individual identifier column. Default \code{"recvDeployName"}.}
 
 \item{doy_col}{Character. Day-of-year column. Default \code{"doy"}.}
 
@@ -30,43 +28,39 @@ typically after calling \code{\link[=add_roost_times]{add_roost_times()}}.}
 
 \item{leave_col}{Character. Departure time column. Default \code{"leave_roost_time"}.}
 
-\item{sunset_col}{Character. Sunset column (currently retained for future
-fallback logic). Default \code{"Sunset"}.}
-
-\item{sunrise_col}{Character. Sunrise column. Default \code{"Sunrise"}.}
-
-\item{gap_threshold}{Numeric. Gaps larger than this many minutes between
-consecutive detections are treated as out-of-range periods and break an
-observation segment. Default \code{10}.}
+\item{bin_size_min}{Numeric. Width of each time bin in minutes. A bin is
+counted as occupied if it contains at least one detection.
+Default \code{2} (appropriate for Motus tags pinging every ~20 sec).}
 }
 \value{
-A dataframe with one row per individual × day-of-year (nights where
-a complete roost interval could be constructed), containing:
+A dataframe with one row per \code{doy_col} (nights where a complete
+roost interval could be constructed), containing:
 \itemize{
-\item \code{id_col}, \code{doy_col}
+\item \code{doy_col}
 \item \code{time_roosting_hr}: total roost interval duration in hours.
-\item \code{observed_time_hr}: total time within roost interval with detections,
-summed across continuous segments.
+\item \code{n_bins_detected}: number of \code{bin_size_min}-minute bins with detections.
+\item \code{observed_time_hr}: \verb{n_bins_detected × bin_size_min / 60}.
 \item \code{prop_time_observed}: \code{observed_time_hr / time_roosting_hr}.
 }
 }
 \description{
-For each individual × day-of-year, calculates how long the animal was
-roosting (total interval from onset to next day's departure) and how much
-of that interval was actually observed by the receiver network.
+For each day-of-year, calculates how long the animal was roosting (from
+onset on night \emph{d} to departure on day \emph{d+1}) and how much of that interval
+was actually observed by the receiver network.
 }
 \details{
-\strong{Biological night interval}: roost onset on day \emph{d} to departure on day
-\emph{d+1} (paired via \code{\link[dplyr:lead-lag]{dplyr::lead()}}). Nights with no detectable onset or
-departure are excluded.
+\strong{Biological night interval}: roost onset on day \emph{d} is paired with
+departure on day \emph{d+1} via a \code{doy - 1L} lookup. Nights with no detectable
+onset or departure are excluded.
 
-\strong{Observed time}: continuous detection segments within the roost interval
-are summed. Gaps larger than \code{gap_threshold} minutes are treated as periods
-when the animal moved out of receiver range and are excluded.
+\strong{Observed time}: detections falling within the roost interval are
+aggregated into \code{bin_size_min}-minute bins. The number of occupied bins
+(bins containing at least one detection) × \code{bin_size_min / 60} gives the
+observed time in hours.
 }
 \examples{
 \dontrun{
-night_metrics <- compute_night_observation(sp, gap_threshold = 10)
+night_metrics <- compute_night_observation(sp)
 summary(night_metrics$prop_time_observed)
 }
 

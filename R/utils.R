@@ -79,3 +79,19 @@ wrap_hours_overnight <- function(data,
   }
   return(data)
 }
+
+# Suppress R CMD check notes for NSE variables used in data.table syntax and
+# intermediate dplyr columns that are created and referenced within the same
+# pipeline step.
+utils::globalVariables(c(
+  ".",           # data.table .() grouping
+  ".hour",       # add_spike_bouts intermediate
+  "doy_prev",    # overnight-interval joins
+  "frac_low_vol", "frac_low_vol_post",  # detect_roost_onset confirmation
+  "low_run", "low_vol",                 # detect_roost_onset data.table cols
+  "n_bins_detected",  # compute_night_observation summarise->mutate
+  "night_doy",        # add_spike_bouts intermediate
+  "observed_time_hr", # compute_night_observation
+  "start_time",       # detect_roost_onset data.table col
+  "time_bin"          # compute_night_observation
+))
