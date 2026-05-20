@@ -32,19 +32,18 @@ source("data-raw/prepare_data.R")  # generates data/sparrow52550.rda
 
 ## Publishing to GitHub
 
-```r
-# In a terminal inside C:\Users\willi\Desktop\roostR:
-git init
-git add .
-git commit -m "Initial roostR package"
-# Create a new repo named roostR on github.com, then:
-git remote add origin https://github.com/ecologykelly/roostR.git
-git push -u origin main
+The package is live at https://github.com/ecologykelly/roostR.
+To push changes:
+
+```bash
+git add <files>
+git commit -m "message"
+git push
 ```
 
-After pushing, install from GitHub with:
+Install from GitHub with:
 ```r
-remotes::install_github("YOUR_USERNAME/roostR")
+remotes::install_github("ecologykelly/roostR", build_vignettes = TRUE)
 ```
 
 ## Package structure
@@ -58,8 +57,15 @@ R/
 ├── roost_detection.R # detect_roost_onset, detect_roost_departure,
 │                     #   add_roost_times, add_roost_hours
 ├── night_metrics.R   # compute_night_observation
-├── restlessness.R    # calc_restless_all, add_spike_bouts, calc_restless_rates
+├── restlessness.R    # calc_restless_all, add_spike_bouts, calc_restless_rates,
+│                     #   calc_bearing_summary
 └── data.R            # roxygen docs for sparrow52550 dataset
+
+Companion scripts (top-level, not part of the package build):
+├── Data.Prep.R       # prepare per-bird CSVs: join sun times, filter receivers
+│                     #   input: data-raw/*.dat.csv → output: data/junco.clean/
+└── roost_workflow.R  # full analysis pipeline; reads data/junco.clean/, writes
+                      #   intermediate RDS to data/step1–4/ and data/results/
 ```
 
 ## Analysis pipeline and function order
@@ -70,9 +76,10 @@ by the next:
 1. `collapse_motus_time()` — one row per individual × timestamp (removes multi-antenna duplicates)
 2. `add_signal_diffs()` — adds `sig.diff`, `sig.diff.mean`, `time.diff`
 3. `add_continuity_flags()` — adds `continuous`, `gap`, `run.id`
-4. `add_roll_median()` — adds `roll_vol` (centered rolling median, default k=25)
+4. `add_roll_median()` — adds `roll_vol` (time-based rolling median, default window_min=15)
 5. `add_day_night()` — adds `diel` factor (`"day"` / `"night"`)
 6. `detect_roost_onset()` → `detect_roost_departure()` → `add_roost_times()` → `add_roost_hours()`
+   (`add_roost_hours()` adds `roost_hour`, `leave_roost_hour`, `sunset_hour`, `sunrise_hour`)
 7. `wrap_hours_overnight()` — for noon-to-noon plotting only
 8. `compute_night_observation()` — returns summary df; left-join back to main data
 9. `calc_restless_all()` — returns summary df; left-join back to main data
@@ -83,8 +90,8 @@ by the next:
 
 - **`tagDeployID` is the individual key**, not `motusTagID` — handles tags
   redeployed on different animals.
-- **All timestamps are UTC.** Sunrise/sunset times must be converted from local
-  time before use (see `Activity.Data.Prep.R` in the source project).
+- **All timestamps are UTC.** Sunrise/sunset times are converted from local
+  time (America/New_York) to UTC in `Data.Prep.R` using `prep_sun_times()`.
 - **Overnight intervals span two DOYs** — roost onset is on DOY *d*, departure
   is on DOY *d+1*. Functions pair them with `dplyr::lead(leave_roost_time)`.
 - **No bare `library()` calls inside functions** — all dependencies are declared
@@ -110,7 +117,7 @@ These defaults were tuned to dark-eyed junco data with ~20 sec ping intervals:
 | Parameter | Default | Function | Rationale |
 |---|---|---|---|
 | Continuity gap | 2 min | `add_continuity_flags` | ~5× ping interval |
-| Rolling window k | 25 obs | `add_roll_median` | ≈ 8–10 min smoothing |
+| Rolling window | 15 min | `add_roll_median` | time-based centered window |
 | Roost vol threshold | 3 | `detect_roost_onset` | Night median ≈ 1, day ≈ 5 |
 | Roost window | ±90 min | `detect_roost_onset` | Around sunset |
 | Departure spike threshold | 4 | `detect_roost_departure` | Matches restlessness threshold |
@@ -121,9 +128,4 @@ These defaults were tuned to dark-eyed junco data with ~20 sec ping intervals:
 
 ## Outstanding tasks
 
-- **`add_day_night()`**: implemented from inline code in `Activity.R`. The user
-  has a version in a separate file — replace the body in `R/diel.R` if needed,
-  then re-run `devtools::document()` and `devtools::check()`.
-- **DESCRIPTION**: update the `email` field in `Authors@R` before publishing.
-- **Example data**: run `source("data-raw/prepare_data.R")` once to generate
-  `data/sparrow52550.rda` before running `devtools::check()`.
+None currently. Package passes `devtools::check()` with 0 errors, 0 warnings.
