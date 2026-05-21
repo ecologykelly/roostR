@@ -4,7 +4,7 @@
 \alias{add_sun_times}
 \title{Join sunrise/sunset times to detection data}
 \usage{
-add_sun_times(data, sun, doy_col = "doy")
+add_sun_times(data, sun, doy_col = "doy", time_col = "time")
 }
 \arguments{
 \item{data}{A dataframe of Motus detections containing a day-of-year column.}
@@ -13,6 +13,9 @@ add_sun_times(data, sun, doy_col = "doy")
 column and POSIXct solar event columns.}
 
 \item{doy_col}{Character. Day-of-year column in \code{data}. Default \code{"doy"}.}
+
+\item{time_col}{Character. Timestamp column used to derive \code{doy} if it is
+absent. Default \code{"time"}.}
 }
 \value{
 The input dataframe with solar event columns joined by \code{doy}.

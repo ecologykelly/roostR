@@ -6,7 +6,7 @@
 \usage{
 calc_restless_all(
   data,
-  id_col = "recvDeployName",
+  id_col = "tagDeployID",
   doy_col = "doy",
   time_col = "time",
   roost_col = "roost_time",

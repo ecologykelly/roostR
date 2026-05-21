@@ -6,7 +6,7 @@
 \usage{
 calc_restless_rates(
   data,
-  id_col = "recvDeployName",
+  id_col = "tagDeployID",
   doy_col = "doy",
   bouts_col = "n_bouts",
   restless_min_col = "total_restless_min",

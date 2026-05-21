@@ -15,7 +15,7 @@
 #'
 #' @param data A dataframe of Motus detections with roost timing columns,
 #'   typically after calling [add_roost_times()].
-#' @param id_col Character. Individual identifier column. Default `"recvDeployName"`.
+#' @param id_col Character. Individual identifier column. Default `"tagDeployID"`.
 #' @param doy_col Character. Day-of-year column. Default `"doy"`.
 #' @param time_col Character. POSIXct timestamp column (UTC). Default `"time"`.
 #' @param roost_col Character. Roost onset time column. Default `"roost_time"`.
@@ -24,9 +24,9 @@
 #'   counted as occupied if it contains at least one detection.
 #'   Default `2` (appropriate for Motus tags pinging every ~20 sec).
 #'
-#' @return A dataframe with one row per `doy_col` (nights where a complete
-#'   roost interval could be constructed), containing:
-#'   - `doy_col`
+#' @return A dataframe with one row per (`id_col`, `doy_col`) combination where
+#'   a complete roost interval could be constructed, containing:
+#'   - `id_col`, `doy_col`
 #'   - `time_roosting_hr`: total roost interval duration in hours.
 #'   - `n_bins_detected`: number of `bin_size_min`-minute bins with detections.
 #'   - `observed_time_hr`: `n_bins_detected × bin_size_min / 60`.
@@ -43,60 +43,60 @@
 #' @importFrom lubridate floor_date
 #' @export
 compute_night_observation <- function(data,
-                                      id_col       = "recvDeployName",
+                                      id_col       = "tagDeployID",
                                       doy_col      = "doy",
                                       time_col     = "time",
                                       roost_col    = "roost_time",
                                       leave_col    = "leave_roost_time",
                                       bin_size_min = 2) {
 
-  # ---- 1. Build one interval per night ----
-  # roost_time and leave_roost_time are already a single value per doy
-  # (detected on combined-receiver data upstream), so distinct() deduplicates.
+  id_doy <- c(id_col, doy_col)
+
+  # ---- 1. Build one interval per individual-night ----
   roost_per_night <- data %>%
     dplyr::filter(!is.na(.data[[roost_col]])) %>%
-    dplyr::select(dplyr::all_of(doy_col),
+    dplyr::select(dplyr::all_of(id_doy),
                   interval_start = dplyr::all_of(roost_col)) %>%
     dplyr::distinct()
 
   leave_per_night <- data %>%
     dplyr::filter(!is.na(.data[[leave_col]])) %>%
-    dplyr::select(dplyr::all_of(doy_col),
+    dplyr::select(dplyr::all_of(id_doy),
                   interval_end = dplyr::all_of(leave_col)) %>%
     dplyr::distinct() %>%
     dplyr::mutate(!!doy_col := .data[[doy_col]] - 1L)
 
   night_intervals <- roost_per_night %>%
-    dplyr::left_join(leave_per_night, by = doy_col) %>%
+    dplyr::left_join(leave_per_night, by = id_doy) %>%
     dplyr::filter(!is.na(interval_start), !is.na(interval_end)) %>%
     dplyr::mutate(time_roosting_hr = as.numeric(
       difftime(interval_end, interval_start, units = "hours")
     ))
 
   # ---- 2. Collect detections spanning the overnight period ----
-  # Two-join approach: evening detections (doy N) joined directly;
-  # post-midnight detections (doy N+1) joined via doy - 1 and relabeled as N.
   night_int_lookup <- night_intervals %>%
-    dplyr::select(dplyr::all_of(c(doy_col, "interval_start", "interval_end")))
+    dplyr::select(dplyr::all_of(c(id_doy, "interval_start", "interval_end")))
 
   night_int_prev <- night_int_lookup %>%
     dplyr::mutate(doy_prev = .data[[doy_col]]) %>%
     dplyr::select(-dplyr::all_of(doy_col))
 
   dets_same <- data %>%
-    dplyr::select(dplyr::all_of(c(doy_col, time_col))) %>%
-    dplyr::inner_join(night_int_lookup, by = doy_col) %>%
+    dplyr::select(dplyr::all_of(c(id_doy, time_col))) %>%
+    dplyr::inner_join(night_int_lookup, by = id_doy) %>%
     dplyr::filter(.data[[time_col]] >= interval_start,
                   .data[[time_col]] <= interval_end) %>%
-    dplyr::select(dplyr::all_of(c(doy_col, time_col)))
+    dplyr::select(dplyr::all_of(c(id_doy, time_col)))
 
   dets_prev <- data %>%
-    dplyr::select(dplyr::all_of(c(doy_col, time_col))) %>%
+    dplyr::select(dplyr::all_of(c(id_doy, time_col))) %>%
     dplyr::mutate(doy_prev = .data[[doy_col]] - 1L) %>%
-    dplyr::inner_join(night_int_prev, by = "doy_prev") %>%
+    dplyr::inner_join(night_int_prev, by = c(id_col, "doy_prev")) %>%
     dplyr::filter(.data[[time_col]] >= interval_start,
                   .data[[time_col]] <= interval_end) %>%
-    dplyr::transmute(!!doy_col := doy_prev, !!time_col := .data[[time_col]])
+    dplyr::transmute(!!id_col  := .data[[id_col]],
+                     !!doy_col := doy_prev,
+                     !!time_col := .data[[time_col]])
 
   detections <- dplyr::bind_rows(dets_same, dets_prev) %>%
     dplyr::distinct()
@@ -107,7 +107,7 @@ compute_night_observation <- function(data,
       time_bin = lubridate::floor_date(.data[[time_col]],
                                        unit = paste(bin_size_min, "minutes"))
     ) %>%
-    dplyr::group_by(.data[[doy_col]]) %>%
+    dplyr::group_by(dplyr::across(dplyr::all_of(id_doy))) %>%
     dplyr::summarise(
       n_bins_detected  = dplyr::n_distinct(time_bin),
       observed_time_hr = n_bins_detected * bin_size_min / 60,
@@ -116,8 +116,8 @@ compute_night_observation <- function(data,
 
   # ---- 4. Combine with total roost duration and compute proportion observed ----
   night_metrics <- night_intervals %>%
-    dplyr::select(dplyr::all_of(c(doy_col, "time_roosting_hr"))) %>%
-    dplyr::left_join(obs_summary, by = doy_col) %>%
+    dplyr::select(dplyr::all_of(c(id_doy, "time_roosting_hr"))) %>%
+    dplyr::left_join(obs_summary, by = id_doy) %>%
     dplyr::mutate(
       observed_time_hr   = dplyr::if_else(is.na(observed_time_hr),
                                           0, observed_time_hr),

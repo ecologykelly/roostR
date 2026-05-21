@@ -6,7 +6,7 @@
 \usage{
 compute_night_observation(
   data,
-  id_col = "recvDeployName",
+  id_col = "tagDeployID",
   doy_col = "doy",
   time_col = "time",
   roost_col = "roost_time",
@@ -18,7 +18,7 @@ compute_night_observation(
 \item{data}{A dataframe of Motus detections with roost timing columns,
 typically after calling \code{\link[=add_roost_times]{add_roost_times()}}.}
 
-\item{id_col}{Character. Individual identifier column. Default \code{"recvDeployName"}.}
+\item{id_col}{Character. Individual identifier column. Default \code{"tagDeployID"}.}
 
 \item{doy_col}{Character. Day-of-year column. Default \code{"doy"}.}
 
@@ -33,10 +33,10 @@ counted as occupied if it contains at least one detection.
 Default \code{2} (appropriate for Motus tags pinging every ~20 sec).}
 }
 \value{
-A dataframe with one row per \code{doy_col} (nights where a complete
-roost interval could be constructed), containing:
+A dataframe with one row per (\code{id_col}, \code{doy_col}) combination where
+a complete roost interval could be constructed, containing:
 \itemize{
-\item \code{doy_col}
+\item \code{id_col}, \code{doy_col}
 \item \code{time_roosting_hr}: total roost interval duration in hours.
 \item \code{n_bins_detected}: number of \code{bin_size_min}-minute bins with detections.
 \item \code{observed_time_hr}: \verb{n_bins_detected × bin_size_min / 60}.

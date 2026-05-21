@@ -293,6 +293,8 @@ prep_sun_times <- function(path,
 #' @param sun A dataframe returned by [prep_sun_times()], with a `J.day`
 #'   column and POSIXct solar event columns.
 #' @param doy_col Character. Day-of-year column in `data`. Default `"doy"`.
+#' @param time_col Character. Timestamp column used to derive `doy` if it is
+#'   absent. Default `"time"`.
 #'
 #' @return The input dataframe with solar event columns joined by `doy`.
 #'

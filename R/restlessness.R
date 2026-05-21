@@ -52,7 +52,7 @@
 #'   inner_join bind_rows arrange if_else first last tibble all_of left_join n
 #' @export
 calc_restless_all <- function(data,
-                              id_col          = "recvDeployName",
+                              id_col          = "tagDeployID",
                               doy_col         = "doy",
                               time_col        = "time",
                               roost_col       = "roost_time",
@@ -62,61 +62,66 @@ calc_restless_all <- function(data,
                               gap_min         = 5,
                               min_bout_min    = 22 / 60) {
 
-  required_cols <- c(doy_col, time_col, roost_col, leave_col, spike_col)
+  required_cols <- c(id_col, doy_col, time_col, roost_col, leave_col, spike_col)
   missing_cols  <- setdiff(required_cols, names(data))
   if (length(missing_cols) > 0) {
     stop("Missing required columns: ", paste(missing_cols, collapse = ", "))
   }
 
-  # ---- 1. Build one interval per night ----
+  id_doy <- c(id_col, doy_col)
+
+  # ---- 1. Build one interval per individual-night ----
   roost_per_night <- data %>%
     dplyr::filter(!is.na(.data[[roost_col]])) %>%
-    dplyr::select(dplyr::all_of(doy_col),
+    dplyr::select(dplyr::all_of(id_doy),
                   interval_start = dplyr::all_of(roost_col)) %>%
     dplyr::distinct()
 
   leave_per_night <- data %>%
     dplyr::filter(!is.na(.data[[leave_col]])) %>%
-    dplyr::select(dplyr::all_of(doy_col),
+    dplyr::select(dplyr::all_of(id_doy),
                   interval_end = dplyr::all_of(leave_col)) %>%
     dplyr::distinct() %>%
     dplyr::mutate(!!doy_col := .data[[doy_col]] - 1L)
 
   night_intervals <- roost_per_night %>%
-    dplyr::left_join(leave_per_night, by = doy_col) %>%
+    dplyr::left_join(leave_per_night, by = id_doy) %>%
     dplyr::filter(!is.na(interval_start), !is.na(interval_end))
 
   # ---- 2. Collect detections: evening (doy N) + post-midnight (doy N+1, relabeled N) ----
   night_int_lookup <- night_intervals %>%
-    dplyr::select(dplyr::all_of(c(doy_col, "interval_start", "interval_end")))
+    dplyr::select(dplyr::all_of(c(id_doy, "interval_start", "interval_end")))
 
   night_int_prev <- night_int_lookup %>%
     dplyr::mutate(doy_prev = .data[[doy_col]]) %>%
     dplyr::select(-dplyr::all_of(doy_col))
 
   dets_same <- data %>%
-    dplyr::select(dplyr::all_of(c(doy_col, time_col, spike_col))) %>%
-    dplyr::inner_join(night_int_lookup, by = doy_col) %>%
+    dplyr::select(dplyr::all_of(c(id_doy, time_col, spike_col))) %>%
+    dplyr::inner_join(night_int_lookup, by = id_doy) %>%
     dplyr::filter(.data[[time_col]] >= interval_start,
                   .data[[time_col]] <= interval_end) %>%
-    dplyr::select(dplyr::all_of(c(doy_col, time_col, spike_col)))
+    dplyr::select(dplyr::all_of(c(id_doy, time_col, spike_col)))
 
   dets_prev <- data %>%
-    dplyr::select(dplyr::all_of(c(doy_col, time_col, spike_col))) %>%
+    dplyr::select(dplyr::all_of(c(id_doy, time_col, spike_col))) %>%
     dplyr::mutate(doy_prev = .data[[doy_col]] - 1L) %>%
-    dplyr::inner_join(night_int_prev, by = "doy_prev") %>%
+    dplyr::inner_join(night_int_prev, by = c(id_col, "doy_prev")) %>%
     dplyr::filter(.data[[time_col]] >= interval_start,
                   .data[[time_col]] <= interval_end) %>%
-    dplyr::mutate(!!doy_col := doy_prev) %>%
-    dplyr::select(dplyr::all_of(c(doy_col, time_col, spike_col)))
+    dplyr::transmute(!!id_col  := .data[[id_col]],
+                     !!doy_col := doy_prev,
+                     !!time_col := .data[[time_col]],
+                     !!spike_col := .data[[spike_col]])
 
   detections <- dplyr::bind_rows(dets_same, dets_prev) %>%
-    dplyr::group_by(.data[[doy_col]], .data[[time_col]]) %>%
-    dplyr::summarise(!!spike_col := max(.data[[spike_col]]), .groups = "drop") %>%
-    dplyr::arrange(.data[[doy_col]], .data[[time_col]])
+    dplyr::group_by(dplyr::across(dplyr::all_of(c(id_doy, time_col)))) %>%
+    dplyr::summarise(!!spike_col := max(.data[[spike_col]], na.rm = TRUE), .groups = "drop") %>%
+    dplyr::arrange(dplyr::across(dplyr::all_of(c(id_doy, time_col))))
 
   if (nrow(detections) == 0) {
     return(dplyr::tibble(
+      !!id_col            := data[[id_col]][0],
       !!doy_col           := integer(),
       n_bouts             = integer(),
       total_restless_min  = numeric(),
@@ -126,7 +131,7 @@ calc_restless_all <- function(data,
 
   # ---- 3. Identify spikes and bouts ----
   detections <- detections %>%
-    dplyr::group_by(.data[[doy_col]]) %>%
+    dplyr::group_by(dplyr::across(dplyr::all_of(id_doy))) %>%
     dplyr::mutate(
       spike    = .data[[spike_col]] > spike_threshold,
       dt       = as.numeric(difftime(.data[[time_col]],
@@ -143,7 +148,7 @@ calc_restless_all <- function(data,
   # ---- 4. Summarise bouts ----
   restless_summary <- detections %>%
     dplyr::filter(spike) %>%
-    dplyr::group_by(.data[[doy_col]], bout_id) %>%
+    dplyr::group_by(dplyr::across(dplyr::all_of(id_doy)), bout_id) %>%
     dplyr::summarise(
       bout_start   = dplyr::first(.data[[time_col]]),
       bout_end     = dplyr::last(.data[[time_col]]),
@@ -153,13 +158,18 @@ calc_restless_all <- function(data,
       ),
       .groups = "drop"
     ) %>%
-    dplyr::group_by(.data[[doy_col]]) %>%
+    dplyr::group_by(dplyr::across(dplyr::all_of(id_doy))) %>%
     dplyr::summarise(
       n_bouts            = dplyr::n(),
       total_restless_min = sum(duration_min),
       max_bout_min       = max(duration_min),
       .groups = "drop"
     )
+
+  if (is.numeric(data[[id_col]])) {
+    restless_summary <- restless_summary %>%
+      dplyr::mutate(!!id_col := as.numeric(.data[[id_col]]))
+  }
 
   return(restless_summary)
 }
@@ -457,14 +467,15 @@ calc_bearing_summary <- function(data,
 #' @importFrom dplyr distinct across all_of mutate if_else
 #' @export
 calc_restless_rates <- function(data,
-                                id_col           = "recvDeployName",
+                                id_col           = "tagDeployID",
                                 doy_col          = "doy",
                                 bouts_col        = "n_bouts",
                                 restless_min_col = "total_restless_min",
                                 observed_hr_col  = "observed_time_hr") {
   data %>%
+    dplyr::filter(!is.na(.data[[bouts_col]])) %>%
     dplyr::distinct(dplyr::across(dplyr::all_of(
-      c(doy_col, bouts_col, restless_min_col, observed_hr_col)
+      c(id_col, doy_col, bouts_col, restless_min_col, observed_hr_col)
     ))) %>%
     dplyr::mutate(
       total_restless_hr = .data[[restless_min_col]] / 60,
