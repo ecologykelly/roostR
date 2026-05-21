@@ -119,7 +119,7 @@ for (f in files) {
   junco <- junco |> add_sun_times(sun)
 
   junco <- junco |>
-    filter(!is.na(recvDeployName)) |>
+    filter(!is.na(recvDeployName), !is.na(port), !is.na(time)) |>
     group_by(recvDeployName) |>
     filter(n() >= min_detections) |>
     ungroup() |>
