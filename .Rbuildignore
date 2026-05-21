@@ -7,8 +7,6 @@
 ^doc$
 ^Meta$
 ^CLAUDE\.md$
-^Data\.Prep\.R$
-^roost_workflow\.R$
 ^figures$
 ^data/junco\.clean$
 ^data/step1_preproc$

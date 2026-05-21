@@ -19,40 +19,7 @@ library(lubridate)
 library(readr)
 
 
-#### functions ####
-
-prep_sun_times <- function(path = "data-raw/sunrisetimes.csv", ref_year) {
-  time_cols <- c("Sunrise", "Sunset", "AT.Start", "AT.End",
-                 "NT.Start", "NT.End", "CT.Start", "CT.End")
-  sun <- read_csv(path, col_select = c("J.day", any_of(time_cols)),
-                  col_types = cols(
-                    Sunrise  = col_character(),
-                    Sunset   = col_character(),
-                    AT.Start = col_character(),
-                    AT.End   = col_character(),
-                    NT.Start = col_character(),
-                    NT.End   = col_character(),
-                    CT.Start = col_character(),
-                    CT.End   = col_character()
-                  ), show_col_types = FALSE) |>
-    filter(!is.na(J.day)) |>
-    distinct(J.day, .keep_all = TRUE)
-  # Reconstruct full dates from J.day using ref_year so times match the data year
-  dates <- as.Date(sun$J.day - 1, origin = paste0(ref_year, "-01-01"))
-  sun[time_cols] <- lapply(sun[time_cols], function(col) {
-    with_tz(
-      parse_date_time(paste(dates, col),
-                      orders = c("Y-m-d I:M:S p", "Y-m-d I:M p"),
-                      tz = "America/New_York"),
-      tzone = "UTC"
-    )
-  })
-  select(sun, J.day, all_of(time_cols))
-}
-
-add_sun_times <- function(junco, sun) {
-  left_join(junco, sun, by = c("doy" = "J.day"))
-}
+# prep_sun_times() and add_sun_times() are provided by the roostR package
 
 
 #### columns to keep ####
@@ -67,7 +34,8 @@ keep_cols <- c("sig", "noise", "motusTagID", "ambigID", "port", "runLen",
 #### Step 1: check towers ####
 # run this section first to identify birds needing receiver removal
 
-files <- list.files("data-raw", pattern = "\\.dat\\.csv$", full.names = TRUE)
+files <- list.files("data-raw", pattern = "\\.csv$", full.names = TRUE)
+files <- files[!grepl("sunrisetimes", files)]
 
 # print sorted tower detection counts for every bird; collect multi-tower birds
 multi_tower <- character(0)
@@ -114,7 +82,7 @@ for (f in files) {
     )
 
   ref_year <- as.integer(format(min(junco$time, na.rm = TRUE), "%Y"))
-  sun <- prep_sun_times(ref_year = ref_year)
+  sun <- prep_sun_times("data-raw/sunrisetimes.csv", ref_year = ref_year)
 
   junco <- junco |> add_sun_times(sun)
 

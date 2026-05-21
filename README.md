@@ -66,6 +66,20 @@ sp <- sp |>
 
 See `vignette("roostR-workflow")` for a full walkthrough with plots.
 
+## Companion Scripts
+
+Two ready-to-run scripts are bundled with the package. Copy them to your working directory to get started:
+
+```r
+file.copy(system.file("scripts/Data.Prep.R",     package = "roostR"), ".")
+file.copy(system.file("scripts/roost_workflow.R", package = "roostR"), ".")
+```
+
+- **`Data.Prep.R`** — prepares raw Motus CSV files: joins sunrise/sunset times, filters low-detection receivers, and writes one clean CSV per bird to `data/junco.clean/`. Run this before `roost_workflow.R`.
+- **`roost_workflow.R`** — runs the full roostR pipeline on cleaned CSVs and saves intermediate and final results to `data/` subfolders and `figures/`.
+
+> **Note:** Processing time scales with file size and number of birds. Large detection files (many nights or high ping rates) can take several minutes per bird, particularly in Steps 2 and 4. For datasets of ~50 birds, full pipeline runs can take several hours — consider running each step section independently and allowing it to complete before proceeding, or running R in the background while working on other tasks.
+
 ## Input Data Format
 
 roostR expects a dataframe of Motus detections with at minimum:

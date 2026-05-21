@@ -61,7 +61,7 @@ R/
 │                     #   calc_bearing_summary
 └── data.R            # roxygen docs for sparrow52550 dataset
 
-Companion scripts (top-level, not part of the package build):
+inst/scripts/
 ├── Data.Prep.R       # prepare per-bird CSVs: join sun times, filter receivers
 │                     #   input: data-raw/*.dat.csv → output: data/junco.clean/
 └── roost_workflow.R  # full analysis pipeline; reads data/junco.clean/, writes
@@ -77,7 +77,8 @@ by the next:
 2. `add_signal_diffs()` — adds `sig.diff`, `sig.diff.mean`, `time.diff`
 3. `add_continuity_flags()` — adds `continuous`, `gap`, `run.id`
 4. `add_roll_median()` — adds `roll_vol` (time-based rolling median, default window_min=15)
-5. `add_day_night()` — adds `diel` factor (`"day"` / `"night"`)
+5. `prep_sun_times()` + `add_sun_times()` — joins sunrise/sunset times (UTC) by doy; required before step 6
+6. `add_day_night()` — adds `diel` factor (`"day"` / `"night"`)
 6. `detect_roost_onset()` → `detect_roost_departure()` → `add_roost_times()` → `add_roost_hours()`
    (`add_roost_hours()` adds `roost_hour`, `leave_roost_hour`, `sunset_hour`, `sunrise_hour`)
 7. `wrap_hours_overnight()` — for noon-to-noon plotting only
@@ -120,11 +121,14 @@ These defaults were tuned to dark-eyed junco data with ~20 sec ping intervals:
 | Rolling window | 15 min | `add_roll_median` | time-based centered window |
 | Roost vol threshold | 3 | `detect_roost_onset` | Night median ≈ 1, day ≈ 5 |
 | Roost window | ±90 min | `detect_roost_onset` | Around sunset |
+| Confirm window | 60 min | `detect_roost_onset` | Bird must stay quiet after onset |
+| Confirm fraction | 0.8 | `detect_roost_onset` | 80% low-vol detections in confirm window |
 | Departure spike threshold | 4 | `detect_roost_departure` | Matches restlessness threshold |
-| Departure window | −90/+120 min | `detect_roost_departure` | Around sunrise |
-| Night gap threshold | 10 min | `compute_night_observation` | Out-of-range criterion |
+| Departure window | ±90 min | `detect_roost_departure` | Around sunrise |
+| Bin size | 5 min | `compute_night_observation` | Observed time resolution |
 | Restlessness spike | 4 | `calc_restless_all`, `add_spike_bouts` | Matched to departure threshold |
-| Restlessness gap | 2 min | `calc_restless_all`, `add_spike_bouts` | Bout separation |
+| Restlessness gap | 5 min | `calc_restless_all`, `add_spike_bouts` | Bout separation |
+| Min bout duration | 22/60 min | `calc_restless_all` | Single spike minimum |
 
 ## Outstanding tasks
 

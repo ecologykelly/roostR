@@ -2,7 +2,7 @@
 # roost_workflow.R
 # Companion workflow script for the roostR package.
 # run Data.Prep.R first 
-# Runs the full roost pipeline on per-bird CSV files in data/
+# Runs the full roost pipeline on per-bird CSV files from junco.clean/ created Data.Prep.R
 # and saves intermediate + final results.
 #
 # Pipeline:

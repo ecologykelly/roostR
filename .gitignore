@@ -6,6 +6,7 @@ inst/doc
 /doc/
 /Meta/
 *.tmp.*
+data-raw/junco_61353.csv
 data/junco.clean/
 data/step1_preproc/
 data/step2_roost/

@@ -33,11 +33,6 @@ collapse_motus_time <- function(data,
                                 time_col = "time",
                                 sig_col  = "sig") {
   data %>%
-    dplyr::filter(
-      !is.na(.data[[id_col]]),
-      !is.na(.data[[port_col]]),
-      !is.na(.data[[time_col]])
-    ) %>%
     dplyr::group_by(.data[[id_col]], .data[[port_col]], .data[[time_col]]) %>%
     dplyr::summarise(
       dplyr::across(dplyr::everything(), dplyr::first),
@@ -307,8 +302,14 @@ prep_sun_times <- function(path,
 #' sp  <- add_sun_times(sp, sun)
 #' }
 #'
-#' @importFrom dplyr left_join
+#' @importFrom dplyr left_join mutate select any_of
+#' @importFrom lubridate yday
 #' @export
-add_sun_times <- function(data, sun, doy_col = "doy") {
+add_sun_times <- function(data, sun, doy_col = "doy", time_col = "time") {
+  if (!doy_col %in% names(data)) {
+    data <- dplyr::mutate(data, !!doy_col := lubridate::yday(.data[[time_col]]))
+  }
+  sun_cols <- setdiff(names(sun), "J.day")
+  data <- dplyr::select(data, -dplyr::any_of(sun_cols))
   dplyr::left_join(data, sun, by = stats::setNames("J.day", doy_col))
 }
