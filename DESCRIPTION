@@ -19,7 +19,8 @@ Imports:
     magrittr,
     zoo,
     data.table,
-    slider
+    slider,
+    readr
 Suggests:
     ggplot2,
     viridis,
@@ -28,6 +29,6 @@ Suggests:
     knitr,
     rmarkdown
 VignetteBuilder: knitr
-Depends: 
-    R (>= 3.5)
+Depends:
+    R (>= 4.1.0)
 LazyData: true

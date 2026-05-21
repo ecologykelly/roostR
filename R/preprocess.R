@@ -33,6 +33,11 @@ collapse_motus_time <- function(data,
                                 time_col = "time",
                                 sig_col  = "sig") {
   data %>%
+    dplyr::filter(
+      !is.na(.data[[id_col]]),
+      !is.na(.data[[port_col]]),
+      !is.na(.data[[time_col]])
+    ) %>%
     dplyr::group_by(.data[[id_col]], .data[[port_col]], .data[[time_col]]) %>%
     dplyr::summarise(
       dplyr::across(dplyr::everything(), dplyr::first),
@@ -211,4 +216,99 @@ add_roll_median <- function(data,
       )
     ) %>%
     dplyr::ungroup()
+}
+
+
+#' Read and parse a sunrise/sunset CSV into UTC times
+#'
+#' Reads a CSV of daily solar event times (one row per day of year), parses
+#' the time strings into POSIXct UTC, and returns a clean lookup table ready
+#' for joining to detection data with [add_sun_times()].
+#'
+#' The CSV must contain a `J.day` column (integer day of year, 1–366) and at
+#' least `Sunrise` and `Sunset` columns with time strings in 12-hour format
+#' (e.g. `"7:48 AM"`). Optional twilight columns (`AT.Start`, `AT.End`,
+#' `NT.Start`, `NT.End`, `CT.Start`, `CT.End`) are parsed if present.
+#' A `Day` column (date string) is accepted but not required — dates are
+#' reconstructed from `J.day` and `ref_year` to ensure the correct year.
+#'
+#' @param path Character. Path to the sunrise/sunset CSV file.
+#' @param ref_year Integer. The calendar year of the detection data. Used to
+#'   reconstruct full dates from `J.day` so that returned POSIXct values are
+#'   in the correct year. Derive with
+#'   `as.integer(format(min(data$time), "%Y"))`.
+#' @param tz_local Character. Local timezone of the input time strings.
+#'   Default `"America/New_York"`.
+#'
+#' @return A dataframe with one row per `J.day` and POSIXct UTC columns for
+#'   each solar event present in the input file.
+#'
+#' @examples
+#' \dontrun{
+#' sun <- prep_sun_times("data-raw/sunrisetimes.csv", ref_year = 2025)
+#' }
+#'
+#' @importFrom readr read_csv cols col_character
+#' @importFrom dplyr filter distinct select any_of
+#' @importFrom lubridate parse_date_time with_tz
+#' @export
+prep_sun_times <- function(path,
+                           ref_year,
+                           tz_local = "America/New_York") {
+  time_cols <- c("Sunrise", "Sunset",
+                 "AT.Start", "AT.End",
+                 "NT.Start", "NT.End",
+                 "CT.Start", "CT.End")
+  sun <- readr::read_csv(
+    path,
+    col_select = c("J.day", dplyr::any_of(time_cols)),
+    col_types  = readr::cols(.default = readr::col_character()),
+    show_col_types = FALSE
+  ) |>
+    dplyr::filter(!is.na(.data[["J.day"]])) |>
+    dplyr::distinct(.data[["J.day"]], .keep_all = TRUE)
+
+  sun$J.day <- as.integer(sun$J.day)
+  dates <- as.Date(sun$J.day - 1, origin = paste0(ref_year, "-01-01"))
+
+  present_cols <- intersect(time_cols, names(sun))
+  sun[present_cols] <- lapply(sun[present_cols], function(col) {
+    lubridate::with_tz(
+      lubridate::parse_date_time(
+        paste(dates, col),
+        orders   = c("Y-m-d I:M:S p", "Y-m-d I:M p"),
+        tz       = tz_local
+      ),
+      tzone = "UTC"
+    )
+  })
+  dplyr::select(sun, "J.day", dplyr::any_of(time_cols))
+}
+
+
+#' Join sunrise/sunset times to detection data
+#'
+#' Left-joins a solar event lookup table (from [prep_sun_times()]) to a
+#' detection dataframe by day of year. This step must be completed before
+#' calling [add_day_night()], [detect_roost_onset()], or
+#' [detect_roost_departure()], all of which require `Sunrise` and/or `Sunset`
+#' columns.
+#'
+#' @param data A dataframe of Motus detections containing a day-of-year column.
+#' @param sun A dataframe returned by [prep_sun_times()], with a `J.day`
+#'   column and POSIXct solar event columns.
+#' @param doy_col Character. Day-of-year column in `data`. Default `"doy"`.
+#'
+#' @return The input dataframe with solar event columns joined by `doy`.
+#'
+#' @examples
+#' \dontrun{
+#' sun <- prep_sun_times("data-raw/sunrisetimes.csv", ref_year = 2025)
+#' sp  <- add_sun_times(sp, sun)
+#' }
+#'
+#' @importFrom dplyr left_join
+#' @export
+add_sun_times <- function(data, sun, doy_col = "doy") {
+  dplyr::left_join(data, sun, by = stats::setNames("J.day", doy_col))
 }
