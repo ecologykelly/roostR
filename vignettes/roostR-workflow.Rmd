@@ -165,7 +165,7 @@ ggplot(sp, aes(hour, roll_vol, color = diel)) +
 `detect_roost_onset()` looks within ±90 minutes of sunset for the latest
 sustained quiet period confirmed by a follow-up window. Two parameters
 control confirmation: `confirm_min` (how long the quiet must persist,
-default 30 min) and `confirm_frac` (fraction of detections that must be
+60 min) and `confirm_frac` (fraction of detections that must be
 low-volatility, default 0.8):
 
 ```{r roost-onset}
@@ -173,20 +173,20 @@ roost_times <- detect_roost_onset(sp,
                                   window_minutes = 90,
                                   vol_threshold  = 3,
                                   min_duration   = 10,
-                                  confirm_min    = 30,
+                                  confirm_min    = 60,
                                   confirm_frac   = 0.8)
 head(roost_times)
 ```
 
 ### Roost departure (sunrise window)
 
-`detect_roost_departure()` looks in the 90 minutes before through 120
+`detect_roost_departure()` looks in the 90 minutes before through 90
 minutes after sunrise for the first spike in activity:
 
 ```{r roost-departure}
 leave_times <- detect_roost_departure(sp,
                                       window_before    = 90,
-                                      window_after     = 120,
+                                      window_after     = 90,
                                       spike_threshold  = 4,
                                       median_threshold = 3)
 head(leave_times)
@@ -209,13 +209,18 @@ becomes the left edge of the plot, keeping the full roost period visible in
 one panel per night:
 
 ```{r wrap}
-overnight <- wrap_hours_overnight(sp, pivot_hour = 17)
+overnight <- wrap_hours_overnight(sp, pivot_hour = 17) |>
+  mutate(night_doy = if_else(hour < 17, doy - 1L, doy))
 
-# One vertical line per DOY for each event
-roost_lines   <- distinct(overnight, doy, roost_hour_wrap)
-leave_lines   <- distinct(overnight, doy, leave_roost_hour_wrap)
-sunset_lines  <- distinct(overnight, doy, sunset_hour_wrap)
-sunrise_lines <- distinct(overnight, doy, sunrise_hour_wrap)
+# Split on the pivot hour so reference lines come from the correct calendar day.
+# evening = doy N (sunset, roost onset); morning = doy N+1 relabelled as night N.
+evening <- overnight |> filter(hour >= 17)
+morning <- overnight |> filter(hour <  17)
+
+sunset_lines  <- distinct(evening, night_doy, sunset_hour_wrap)
+roost_lines   <- distinct(evening, night_doy, roost_hour_wrap)
+sunrise_lines <- distinct(morning, night_doy, sunrise_hour_wrap)
+leave_lines   <- distinct(morning, night_doy, leave_roost_hour_wrap)
 ```
 
 ```{r plot-overnight, fig.cap="Signal differences with roost onset, departure, sunrise and sunset lines"}
@@ -233,7 +238,7 @@ ggplot(overnight, aes(hour_wrap, sig.diff)) +
   geom_vline(data = leave_lines,
              aes(xintercept = leave_roost_hour_wrap),
              color = "#55C667FF") +
-  facet_wrap(~doy) +
+  facet_wrap(~night_doy) +
   scale_x_continuous(
     breaks = seq(15, 39, by = 3),
     labels = function(x) x %% 24
@@ -252,15 +257,17 @@ green solid = roost departure.
 
 ## Step 7: Night observation metrics
 
-`compute_night_observation()` calculates, for each night:
+`compute_night_observation()` pairs roost onset on day N with departure on
+day N+1 internally via a `doy - 1L` offset; nights with no detected departure
+are excluded. It calculates, for each complete night:
 
 - `time_roosting_hr` — total roost interval duration
-- `n_bins_detected` — number of 2-minute bins with at least one detection
-- `observed_time_hr` — `n_bins_detected × 2 / 60`
+- `n_bins_detected` — number of 5-minute bins with at least one detection
+- `observed_time_hr` — `n_bins_detected × 5 / 60`
 - `prop_time_observed` — coverage fraction
 
 ```{r night-obs}
-night_metrics <- compute_night_observation(sp, bin_size_min = 2)
+night_metrics <- compute_night_observation(sp, bin_size_min = 5)
 summary(night_metrics[c("time_roosting_hr", "observed_time_hr",
                          "prop_time_observed")])
 
