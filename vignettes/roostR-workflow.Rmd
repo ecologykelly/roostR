@@ -339,6 +339,12 @@ bearing_summary
 
 ## Step 10: Summary plots
 
+Several figures should be reviewed for each individual animal using code
+provided in the workflow. Users should convert UTC to local time prior to
+plotting. Three examples are provided including roost initiation in relation
+to sunset, roost departure in relation to sunrise, and the proportion of
+observed time restless by day of year.
+
 ```{r plot-summary, fig.cap="Roost and departure timing relative to sunset and sunrise"}
 # Convert to local time for interpretability
 sp_est <- sp %>%
@@ -364,13 +370,13 @@ night_est <- distinct(sp_est, doy, roost_hour_est,
 ggplot(night_est, aes(doy)) +
   geom_point(aes(y = roost_hour_est)) +
   geom_line(aes(y = sunset_hour_est), linetype = "dashed") +
-  labs(y = "Hour (America/New_York)", title = "Roost time vs. sunset") +
+  labs(y = "Hour (America/New_York)", title = "Roost initiation vs. sunset") +
   theme_bw()
 
 ggplot(night_est, aes(doy)) +
   geom_point(aes(y = leave_hour_est)) +
   geom_line(aes(y = sunrise_hour_est), linetype = "dashed") +
-  labs(y = "Hour (America/New_York)", title = "Departure time vs. sunrise") +
+  labs(y = "Hour (America/New_York)", title = "Roost departure vs. sunrise") +
   theme_bw()
 
 ggplot(night_est, aes(doy, prop_time_restless)) +
