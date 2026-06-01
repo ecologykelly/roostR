@@ -19,16 +19,16 @@ knitr::opts_chunk$set(
 ## Overview
 
 **roostR** converts raw Motus radio-telemetry detections into behavioral
-metrics for nocturnally roosting birds. The core idea is that an animal moving
-near a receiver tower produces larger changes in signal strength than a
-stationary roosting bird. By tracking these signal differences over time,
+metrics for nocturnal activity. The core idea is that an animal moving
+within range of a receiver tower produces larger changes in signal strength than a
+stationary animal. By tracking these signal differences over time,
 roostR can detect:
 
-- **Roost onset** — when the bird settles for the night (near sunset)
-- **Roost departure** — when the bird leaves in the morning (near sunrise)
+- **Roost onset** — when an animal settles for the night (near sunset)
+- **Roost departure** — when an animal becomes active in the morning (near sunrise)
 - **Restlessness** — activity spikes during the roost interval
 
-This workflow is designed for the **per-bird-file** pattern: one dataframe
+This workflow is designed for the **per-animal-file** pattern: one dataframe
 per individual, with `recvDeployName` identifying the receiver and `port`
 identifying the antenna.
 
@@ -42,7 +42,7 @@ Your detection dataframe must contain at minimum:
 
 | Column | Type | Description |
 |--------|------|-------------|
-| `recvDeployName` | character | Receiver deployment name (individual key within a per-bird file) |
+| `recvDeployName` | character | Receiver deployment name (individual key within a per-animal file) |
 | `port` | integer | Antenna port number |
 | `time` | POSIXct UTC | Detection timestamp |
 | `doy` | integer | Day of year |
@@ -52,7 +52,7 @@ Your detection dataframe must contain at minimum:
 
 Astronomical twilight columns (`AT.Start`, `AT.End`, `NT.Start`, `NT.End`,
 `CT.Start`, `CT.End`) are included in `sparrow52550` and are useful for
-context plots but not required by core functions.
+context plots but not required by core functions. For other species, astronomical twilight may be a better choice than sunrise and sunset and code may be modified to include.
 
 ```{r load}
 library(roostR)
@@ -67,7 +67,7 @@ glimpse(sparrow52550)
 
 ## Step 1: Collapse multi-antenna detections
 
-A Motus tag can be detected on up to four antennas at the same receiver
+A Motus tag can be detected on multiple antennas at the same receiver
 simultaneously. `collapse_motus_time()` reduces these to one row per
 receiver × port × timestamp, keeping the maximum signal (`sig`) and
 computing the mean (`sig.mean`).
@@ -90,7 +90,7 @@ cat("Rows after: ", nrow(sp), "\n")
 - `time.diff` — minutes elapsed since the previous detection
 
 These are the core activity proxies. Large `sig.diff` values indicate
-movement; small values indicate a stationary (roosting) bird.
+movement; small values indicate a stationary (roosting) animal.
 
 ```{r signal-diffs}
 sp <- add_signal_diffs(sp)
@@ -144,7 +144,7 @@ sp <- sp %>%
   )
 ```
 
-A quick sanity check — rolling median should be higher during the day:
+A quick sanity check — for diurnal animals, the rolling median should be higher during the day:
 
 ```{r plot-diel, fig.cap="Rolling median activity by diel period and day-of-year"}
 ggplot(sp, aes(hour, roll_vol, color = diel)) +
@@ -202,9 +202,9 @@ sp <- add_roost_hours(sp)
 
 ---
 
-## Step 6: Overnight plotting
+## Step 6: Overnight plotting for visual confirmation of paramaeters used above.
 
-`wrap_hours_overnight()` shifts UTC hours so that 17:00 UTC (≈ noon EST)
+`wrap_hours_overnight()` shifts UTC hours so that 17:00 UTC (≈ noon EST, users should change pivit_hour to match their time zone)
 becomes the left edge of the plot, keeping the full roost period visible in
 one panel per night:
 
@@ -341,7 +341,7 @@ bearing_summary
 
 Several figures should be reviewed for each individual animal using code
 provided in the workflow. Users should convert UTC to local time prior to
-plotting. Three examples are provided including roost initiation in relation
+plotting for interpretability. Three examples are provided including roost initiation in relation
 to sunset, roost departure in relation to sunrise, and the proportion of
 observed time restless by day of year.
 
