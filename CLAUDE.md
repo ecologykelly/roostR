@@ -94,7 +94,17 @@ by the next:
 - **All timestamps are UTC.** Sunrise/sunset times are converted from local
   time (America/New_York) to UTC in `Data.Prep.R` using `prep_sun_times()`.
 - **Overnight intervals span two DOYs** — roost onset is on DOY *d*, departure
-  is on DOY *d+1*. Functions pair them with `dplyr::lead(leave_roost_time)`.
+  is on DOY *d+1*. Functions that require the complete interval
+  (`compute_night_observation()`, `calc_restless_all()`, `add_spike_bouts()`)
+  pair them internally via a `doy - 1L` offset: departure times from DOY *d+1*
+  are shifted back to DOY *d* before joining with onset data.
+- **Overnight plotting** — `wrap_hours_overnight()` wraps hour-of-day values
+  for noon-to-noon display. After calling it, compute
+  `night_doy = if_else(hour < pivot_hour, doy - 1L, doy)` and split into
+  `evening` (hour >= pivot_hour, doy N) and `morning` (hour < pivot_hour,
+  doy N+1 relabelled as N) before extracting reference lines. Facet by
+  `night_doy` — not `doy` — so roost onset and departure appear in the same
+  panel. See `vignettes/roostR-workflow.Rmd` Step 6 for the full pattern.
 - **No bare `library()` calls inside functions** — all dependencies are declared
   in `DESCRIPTION` Imports and called with `package::function()` or via
   `@importFrom` roxygen tags.
