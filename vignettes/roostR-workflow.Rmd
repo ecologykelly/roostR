@@ -165,7 +165,7 @@ ggplot(sp, aes(hour, roll_vol, color = diel)) +
 `detect_roost_onset()` looks within ±90 minutes of sunset for the latest
 sustained quiet period confirmed by a follow-up window. Two parameters
 control confirmation: `confirm_min` (how long the quiet must persist,
-60 min) and `confirm_frac` (fraction of detections that must be
+default 30 min) and `confirm_frac` (fraction of detections that must be
 low-volatility, default 0.8):
 
 ```{r roost-onset}
@@ -173,7 +173,7 @@ roost_times <- detect_roost_onset(sp,
                                   window_minutes = 90,
                                   vol_threshold  = 3,
                                   min_duration   = 10,
-                                  confirm_min    = 60,
+                                  confirm_min    = 30,
                                   confirm_frac   = 0.8)
 head(roost_times)
 ```

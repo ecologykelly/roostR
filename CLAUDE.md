@@ -114,7 +114,8 @@ by the next:
 **Imports** (required, in DESCRIPTION):
 - `dplyr` — data manipulation throughout
 - `lubridate` — POSIXct arithmetic (`minutes()`, `hour()`, `with_tz()`)
-- `zoo` — `rollmedian()` in `add_roll_median()`, `rollapply()` in `detect_roost_departure()`
+- `zoo` — `rollapply()` in `detect_roost_departure()`
+- `slider` — `slide_index_dbl()` in `add_roll_median()` (time-indexed rolling median)
 - `data.table` — `rleid()` in `add_continuity_flags()` and `detect_roost_onset()`
 
 **Suggests** (optional, for vignette and user scripts):
@@ -131,7 +132,7 @@ These defaults were tuned to dark-eyed junco data with ~20 sec ping intervals:
 | Rolling window | 15 min | `add_roll_median` | time-based centered window |
 | Roost vol threshold | 3 | `detect_roost_onset` | Night median ≈ 1, day ≈ 5 |
 | Roost window | ±90 min | `detect_roost_onset` | Around sunset |
-| Confirm window | 60 min | `detect_roost_onset` | Bird must stay quiet after onset |
+| Confirm window | 30 min | `detect_roost_onset` | Bird must stay quiet after onset |
 | Confirm fraction | 0.8 | `detect_roost_onset` | 80% low-vol detections in confirm window |
 | Departure spike threshold | 4 | `detect_roost_departure` | Matches restlessness threshold |
 | Departure window | ±90 min | `detect_roost_departure` | Around sunrise |
