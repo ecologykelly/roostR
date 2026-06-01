@@ -180,13 +180,13 @@ head(roost_times)
 
 ### Roost departure (sunrise window)
 
-`detect_roost_departure()` looks in the 90 minutes before through 90
+`detect_roost_departure()` looks in the 90 minutes before through 120
 minutes after sunrise for the first spike in activity:
 
 ```{r roost-departure}
 leave_times <- detect_roost_departure(sp,
                                       window_before    = 90,
-                                      window_after     = 90,
+                                      window_after     = 120,
                                       spike_threshold  = 4,
                                       median_threshold = 3)
 head(leave_times)

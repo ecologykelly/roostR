@@ -135,7 +135,7 @@ These defaults were tuned to dark-eyed junco data with ~20 sec ping intervals:
 | Confirm window | 30 min | `detect_roost_onset` | Bird must stay quiet after onset |
 | Confirm fraction | 0.8 | `detect_roost_onset` | 80% low-vol detections in confirm window |
 | Departure spike threshold | 4 | `detect_roost_departure` | Matches restlessness threshold |
-| Departure window | ±90 min | `detect_roost_departure` | Around sunrise |
+| Departure window | 90 min before, 120 min after | `detect_roost_departure` | Asymmetric: wider post-sunrise window captures late departures |
 | Bin size | 5 min | `compute_night_observation` | Observed time resolution |
 | Restlessness spike | 4 | `calc_restless_all`, `add_spike_bouts` | Matched to departure threshold |
 | Restlessness gap | 5 min | `calc_restless_all`, `add_spike_bouts` | Bout separation |
