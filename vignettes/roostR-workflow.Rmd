@@ -262,12 +262,12 @@ day N+1 internally via a `doy - 1L` offset; nights with no detected departure
 are excluded. It calculates, for each complete night:
 
 - `time_roosting_hr` — total roost interval duration
-- `n_bins_detected` — number of 5-minute bins with at least one detection
-- `observed_time_hr` — `n_bins_detected × 5 / 60`
+- `n_bins_detected` — number of 2-minute bins with at least one detection
+- `observed_time_hr` — `n_bins_detected × 2 / 60`
 - `prop_time_observed` — coverage fraction
 
 ```{r night-obs}
-night_metrics <- compute_night_observation(sp, bin_size_min = 5)
+night_metrics <- compute_night_observation(sp, bin_size_min = 2)
 summary(night_metrics[c("time_roosting_hr", "observed_time_hr",
                          "prop_time_observed")])
 
