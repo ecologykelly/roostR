@@ -225,7 +225,7 @@ leave_lines   <- distinct(morning, night_doy, leave_roost_hour_wrap)
 
 ```{r plot-overnight, fig.cap="Signal differences with roost onset, departure, sunrise and sunset lines"}
 ggplot(overnight, aes(hour_wrap, sig.diff)) +
-  geom_point(alpha = 0.4, size = 0.5) +
+  geom_point(color = "grey", alpha = 0.5, size = 0.5) +
   geom_vline(data = sunset_lines,
              aes(xintercept = sunset_hour_wrap),
              linetype = 2, color = "#440154FF") +
