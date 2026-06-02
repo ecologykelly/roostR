@@ -204,7 +204,7 @@ sp <- add_roost_hours(sp)
 
 ## Step 6: Overnight plotting for visual confirmation of paramaeters used above.
 
-`wrap_hours_overnight()` shifts UTC hours so that 17:00 UTC (≈ noon EST, users should change pivit_hour to match their time zone)
+`wrap_hours_overnight()` shifts UTC hours so that 17:00 UTC (≈ noon ET, users should change pivot_hour to match their time zone)
 becomes the left edge of the plot, keeping the full roost period visible in
 one panel per night:
 
@@ -245,7 +245,7 @@ ggplot(overnight, aes(hour_wrap, sig.diff)) +
   ) +
   coord_cartesian(ylim = c(0, 50)) +
   geom_hline(yintercept = 5, color = "#FDE725FF", linetype = 2) +
-  labs(x = "Hour (noon–noon EST)",
+  labs(x = "Hour (noon–noon ET)",
        y = "Signal difference") +
   theme_bw()
 ```
