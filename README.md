@@ -1,7 +1,7 @@
 # roostR
 
 **roostR** is an R package for detecting and quantifying nocturnal roosting
-behavior in birds tagged with [Motus](https://motus.org/) radio transmitters.
+behavior in animals tagged with [Motus](https://motus.org/) radio transmitters.
 It converts raw signal-strength detections into behavioral metrics: roost onset
 time, roost departure time, nightly observation coverage, and restlessness bout
 statistics.
